@@ -1,0 +1,18 @@
+{
+  "curso": "💈 Sillón · Proyecto integrador Módulos 4 y 5",
+  "fechaLimite": "",
+  "patronTest": "pm\\.test\\(|\"chequeo\":",
+  "entregables": ["src/", "pom.xml", "mvnw", "mvnw.cmd", ".mvn/", "postman/", "Dockerfile", ".dockerignore", "README.md", "SPEC.md", "AGENTS.md", "BITACORA-IA.md", "secrets.example.properties", "secrets.properties"],
+  "protegidos": [".github/"],
+  "ejercicios": [
+    { "id": "01", "titulo": "Registro, login y configuración", "test": ".github/calificador/coleccion/01-registro.json" },
+    { "id": "02", "titulo": "Catálogo y equipo", "test": ".github/calificador/coleccion/02-catalogo.json" },
+    { "id": "03", "titulo": "Agenda", "test": ".github/calificador/coleccion/03-agenda.json" },
+    { "id": "04", "titulo": "Aislamiento y roles", "test": ".github/calificador/coleccion/04-aislamiento.json" },
+    { "id": "05", "titulo": "IA: recordatorio y chatbot", "test": ".github/calificador/coleccion/05-ia.json" },
+    { "id": "06", "titulo": "Pagos con Stripe", "test": ".github/calificador/coleccion/06-pagos.json" },
+    { "id": "07", "titulo": "Tests JUnit", "test": ".github/calificador/criterios/07-tests-junit.json" },
+    { "id": "08", "titulo": "Repositorio y entrega", "test": ".github/calificador/criterios/08-repositorio.json" },
+    { "id": "09", "titulo": "Producción en Render", "test": ".github/calificador/coleccion/09-produccion.json" }
+  ]
+}

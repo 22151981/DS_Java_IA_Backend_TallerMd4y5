@@ -1,0 +1,13 @@
+{
+  "titulo": "Tests JUnit del estudiante",
+  "chequeos": [
+    { "chequeo": "compila", "descripcion": "El proyecto compila con Maven" },
+    { "chequeo": "tests-corren", "descripcion": "Los tests compilan y se ejecutan" },
+    { "chequeo": "tests-verdes", "descripcion": "Todos los tests pasan" },
+    { "chequeo": "tests-15", "descripcion": "Hay al menos 15 tests" },
+    { "chequeo": "tests-30", "descripcion": "Hay al menos 30 tests" },
+    { "chequeo": "tests-agenda", "descripcion": "Hay tests de las reglas de agenda o de las citas" },
+    { "chequeo": "tests-webhook", "descripcion": "Hay tests del webhook de Stripe" },
+    { "chequeo": "tests-chatbot", "descripcion": "Hay tests del chatbot" }
+  ]
+}

@@ -1,0 +1,238 @@
+name: Calificar proyecto
+
+# pull_request_target: corre SIEMPRE, sin que la profe apruebe nada.
+# El workflow se toma de main, así que el estudiante no lo puede modificar.
+on:
+  pull_request_target:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: calificar-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Compila, prueba y arranca el proyecto del estudiante con permisos de SOLO LECTURA
+  calificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: sillon_calificador
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      stripe:
+        image: stripe/stripe-mock:v0.206.0
+        ports:
+          - 12111:12111
+    steps:
+      - name: Descargar el calificador y la configuración oficiales (desde main)
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Descargar la entrega del estudiante
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: entrega
+          persist-credentials: false
+          allow-unsafe-pr-checkout: true
+
+      - name: Usar solo los archivos que entrega el estudiante
+        run: |
+          for ruta in $(jq -r '.entregables[]' .github/calificacion.json); do
+            rm -rf "$ruta"
+            if [ -e "entrega/$ruta" ]; then
+              mkdir -p "$(dirname "$ruta")"
+              cp -r "entrega/$ruta" "$ruta"
+            else
+              case "$ruta" in */) mkdir -p "$ruta" ;; esac
+            fi
+          done
+          rm -rf entrega
+
+      - name: Instalar Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache-jdk: "false"
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Instalar Newman
+        run: npm install --global newman@6
+
+      - name: Compilar, probar, arrancar y calificar
+        run: node .github/calificador/calificar.js
+
+      - name: Guardar resultado para publicar la nota
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: resultado
+          path: resultado.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Publica la nota. NO ejecuta código del estudiante.
+  publicar:
+    needs: calificar
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Leer la configuración y los tests oficiales (desde main)
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Descargar el resultado de la calificación
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: resultado
+          path: resultado
+
+      - name: Poner nota, etiqueta y comentario en el Pull Request
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require("fs");
+            const { owner, repo } = context.repo;
+            const MARCADOR = "<!-- nota-automatica -->";
+            const REVISAR = "⚠️ Revisar";
+            const FUERA_DE_PLAZO = "⏰ Fuera de plazo";
+            const enlaceRun = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const crearEtiqueta = async (name, color) => {
+              try {
+                await github.rest.issues.createLabel({ owner, repo, name, color });
+              } catch (e) {
+                if (e.status !== 422) throw e;
+              }
+            };
+
+            // 1. El PR viene del evento (dato confiable). Si ya llegó un push más nuevo, no se publica.
+            const evento = context.payload.pull_request;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: evento.number });
+            if (pr.state !== "open" || pr.head.sha !== evento.head.sha) {
+              core.info("El PR está cerrado o ya llegó un push más nuevo.");
+              return;
+            }
+
+            // 2. Ejercicios y cantidad de tests: se leen de main (.github/calificacion.json), no del artefacto
+            const config = JSON.parse(fs.readFileSync(".github/calificacion.json", "utf8"));
+            const patronTest = new RegExp(config.patronTest, "gm");
+            const ejercicios = config.ejercicios.map((ej) => ({
+              id: ej.id,
+              titulo: ej.titulo,
+              total: (fs.readFileSync(ej.test, "utf8").match(patronTest) || []).length,
+            }));
+
+            // 2b. Fecha límite (opcional): después de esa hora los push ya no cambian la nota
+            if (config.fechaLimite && new Date() > new Date(config.fechaLimite)) {
+              const yaTieneNota = pr.labels.some((l) => l.name.startsWith("Nota "));
+              if (!yaTieneNota) {
+                await crearEtiqueta(FUERA_DE_PLAZO, "6e7781");
+                await github.rest.issues.addLabels({ owner, repo, issue_number: pr.number, labels: [FUERA_DE_PLAZO] });
+              }
+              core.info(`PR #${pr.number}: push después de la fecha límite (${config.fechaLimite}); la nota no cambia.`);
+              return;
+            }
+
+            // 3. Resultado del estudiante: solo se aceptan números
+            let reportados = [];
+            try {
+              const datos = JSON.parse(fs.readFileSync("resultado/resultado.json", "utf8"));
+              if (Array.isArray(datos.ejercicios)) reportados = datos.ejercicios;
+            } catch (e) {
+              core.warning("No se encontró resultado.json");
+            }
+            const sinResultado = reportados.length === 0;
+
+            let pasados = 0, total = 0;
+            const filas = ejercicios.map((ej) => {
+              const r = reportados.find((x) => x && x.id === ej.id);
+              const p = r && Number.isInteger(r.pasados) ? Math.max(0, Math.min(r.pasados, ej.total)) : 0;
+              pasados += p;
+              total += ej.total;
+              const estado = p === ej.total ? "✅" : p > 0 ? "🟡" : "❌";
+              return `| ${estado} | ${ej.id} · ${ej.titulo} | ${p}/${ej.total} |`;
+            });
+            const nota = total ? Math.round((pasados / total) * 50) / 10 : 0;
+
+            // 4. ¿El estudiante tocó archivos que no debía?
+            const archivos = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pr.number, per_page: 100,
+            });
+            const protegidos = archivos
+              .map((f) => f.filename)
+              .filter((f) => config.protegidos.some((p) => (p.endsWith("/") ? f.startsWith(p) : f === p)));
+
+            // 5. Etiquetas: "Nota X.X" (y "⚠️ Revisar" si aplica)
+            const etiqueta = `Nota ${nota.toFixed(1)}`;
+            const color = nota >= 4 ? "2da44e" : nota >= 3 ? "d4a72c" : "cf222e";
+            await crearEtiqueta(etiqueta, color);
+            if (protegidos.length) await crearEtiqueta(REVISAR, "bf8700");
+
+            for (const { name } of pr.labels) {
+              const vieja = (name.startsWith("Nota ") && name !== etiqueta) || (name === REVISAR && !protegidos.length);
+              if (vieja) await github.rest.issues.removeLabel({ owner, repo, issue_number: pr.number, name });
+            }
+            await github.rest.issues.addLabels({
+              owner, repo, issue_number: pr.number,
+              labels: protegidos.length ? [etiqueta, REVISAR] : [etiqueta],
+            });
+
+            // 6. Comentario con el detalle (se edita el mismo en cada push)
+            const avisoProtegidos = protegidos.length
+              ? `\n> [!WARNING]\n> Modificaste archivos que no se deben tocar: ${protegidos.map((f) => "`" + f + "`").join(", ")}.\n> La profe revisará este PR manualmente.\n`
+              : "";
+            const avisoSinResultado = sinResultado
+              ? "\n> [!CAUTION]\n> No se pudo calificar este push. Abre el enlace de abajo para ver qué pasó.\n"
+              : "";
+            const cuerpo = [
+              MARCADOR,
+              `## 🎯 Nota: ${nota.toFixed(1)} / 5.0`,
+              `Tests aprobados: **${pasados}/${total}**`,
+              avisoProtegidos + avisoSinResultado,
+              "| Estado | Ejercicio | Tests |",
+              "|---|---|---|",
+              ...filas,
+              "",
+              `🔎 [Ver qué falta por corregir](${enlaceRun})`,
+              "",
+              "_Cada vez que hagas `git push` a tu rama, esta nota se actualiza sola._",
+            ].join("\n");
+
+            const comentarios = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pr.number, per_page: 100,
+            });
+            const previo = comentarios.find((c) => c.user.type === "Bot" && c.body.includes(MARCADOR));
+            if (previo) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: previo.id, body: cuerpo });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body: cuerpo });
+            }
+            core.info(`PR #${pr.number}: ${etiqueta}`);

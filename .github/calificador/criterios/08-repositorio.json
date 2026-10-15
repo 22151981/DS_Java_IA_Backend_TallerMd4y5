@@ -1,0 +1,17 @@
+{
+  "titulo": "Repositorio y entrega",
+  "chequeos": [
+    { "chequeo": "spec", "descripcion": "SPEC.md en la raíz, con contenido" },
+    { "chequeo": "agents", "descripcion": "AGENTS.md en la raíz, con contenido" },
+    { "chequeo": "bitacora", "descripcion": "BITACORA-IA.md con al menos 5 entradas" },
+    { "chequeo": "coleccion", "descripcion": "Colección de Postman en postman/ con al menos 50 peticiones" },
+    { "chequeo": "coleccion-pruebas", "descripcion": "Al menos 40 peticiones de la colección tienen pruebas automáticas" },
+    { "chequeo": "entornos", "descripcion": "Entornos de Postman local y producción en postman/" },
+    { "chequeo": "dockerfile", "descripcion": "Dockerfile en la raíz" },
+    { "chequeo": "plantilla-secretos", "descripcion": "secrets.example.properties en la raíz" },
+    { "chequeo": "sin-secretos", "descripcion": "secrets.properties NO está en el repositorio" },
+    { "chequeo": "sin-llaves", "descripcion": "No hay llaves reales de Stripe ni de Gemini en el código" },
+    { "chequeo": "prompts", "descripcion": "Al menos 2 prompts en src/main/resources/prompts/" },
+    { "chequeo": "readme-render", "descripcion": "README.md con la URL de Render" }
+  ]
+}

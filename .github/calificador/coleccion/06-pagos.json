@@ -1,0 +1,803 @@
+{
+  "name": "6. Pagos con Stripe y webhooks firmados",
+  "item": [
+    {
+      "name": "Crear pago del plan PRO",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "const r = pm.response.json();",
+              "pm.test(\"Devuelve la URL de pago de Stripe\", () => pm.expect(r.urlPago).to.match(/^https:\\/\\//));",
+              "pm.collectionVariables.set(\"urlPagoPro\", r.urlPago);",
+              "console.log(\"Abre esta URL y paga con la tarjeta de prueba 4242 4242 4242 4242:\", r.urlPago);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos/suscripcion",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pagos",
+            "suscripcion"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenA}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Crear pago del paquete de créditos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Devuelve la URL de pago de Stripe\", () => pm.expect(pm.response.json().urlPago).to.match(/^https:\\/\\//));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos/creditos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pagos",
+            "creditos"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenA}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Webhook sin firma de Stripe → 400",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos/webhook",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pagos",
+            "webhook"
+          ]
+        },
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"evt_falso\",\n  \"type\": \"checkout.session.completed\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Un estilista no puede pagar → 403",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 403\", () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos/suscripcion",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pagos",
+            "suscripcion"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenMateo}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Mi salón antes de pagar",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "const r = pm.response.json();",
+              "pm.test(\"Sigue en plan GRATIS\", () => pm.expect(r.plan).to.eql(\"GRATIS\"));",
+              "pm.collectionVariables.set(\"salonIdA\", r.id);",
+              "pm.collectionVariables.set(\"creditosAntes\", r.creditosIa);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/salon",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "salon"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenA}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Webhook firmado: pagó el plan PRO",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const cuerpo = JSON.stringify({ id: \"evt_pro_\" + pm.collectionVariables.get(\"sufijo\"), object: \"event\", api_version: \"2026-09-30.endive\", type: \"checkout.session.completed\",",
+              "  data: { object: { id: \"cs_test_\" + pm.collectionVariables.get(\"sufijo\"), object: \"checkout.session\", mode: \"subscription\", payment_status: \"paid\",",
+              "    subscription: \"sub_\" + pm.collectionVariables.get(\"sufijo\"),",
+              "    metadata: { salonId: String(pm.collectionVariables.get(\"salonIdA\")), tipo: \"SUSCRIPCION_PRO\" } } } });",
+              "const t = Math.floor(Date.now() / 1000);",
+              "const secreto = pm.variables.replaceIn(\"{{secretoWebhook}}\");",
+              "const firma = CryptoJS.HmacSHA256(t + \".\" + cuerpo, secreto).toString(CryptoJS.enc.Hex);",
+              "pm.collectionVariables.set(\"cuerpoWebhook\", cuerpo);",
+              "pm.collectionVariables.set(\"firmaWebhook\", \"t=\" + t + \",v1=\" + firma);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Lo procesó\", () => pm.expect(pm.response.json().procesado).to.eql(true));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Stripe-Signature",
+            "value": "{{firmaWebhook}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos/webhook",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pagos",
+            "webhook"
+          ]
+        },
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{{cuerpoWebhook}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "El salón quedó en PRO con 300 créditos más",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "const r = pm.response.json();",
+              "pm.test(\"Plan PRO\", () => pm.expect(r.plan).to.eql(\"PRO\"));",
+              "pm.test(\"Sumó exactamente 300 créditos\", () => pm.expect(r.creditosIa).to.eql(Number(pm.collectionVariables.get(\"creditosAntes\")) + 300));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/salon",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "salon"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenA}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "El mismo evento repetido no se aplica dos veces",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const cuerpo = JSON.stringify({ id: \"evt_pro_\" + pm.collectionVariables.get(\"sufijo\"), object: \"event\", api_version: \"2026-09-30.endive\", type: \"checkout.session.completed\",",
+              "  data: { object: { id: \"cs_test_\" + pm.collectionVariables.get(\"sufijo\"), object: \"checkout.session\", mode: \"subscription\", payment_status: \"paid\",",
+              "    subscription: \"sub_\" + pm.collectionVariables.get(\"sufijo\"),",
+              "    metadata: { salonId: String(pm.collectionVariables.get(\"salonIdA\")), tipo: \"SUSCRIPCION_PRO\" } } } });",
+              "const t = Math.floor(Date.now() / 1000);",
+              "const secreto = pm.variables.replaceIn(\"{{secretoWebhook}}\");",
+              "const firma = CryptoJS.HmacSHA256(t + \".\" + cuerpo, secreto).toString(CryptoJS.enc.Hex);",
+              "pm.collectionVariables.set(\"cuerpoWebhook\", cuerpo);",
+              "pm.collectionVariables.set(\"firmaWebhook\", \"t=\" + t + \",v1=\" + firma);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Responde que no lo procesó\", () => pm.expect(pm.response.json().procesado).to.eql(false));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Stripe-Signature",
+            "value": "{{firmaWebhook}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos/webhook",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pagos",
+            "webhook"
+          ]
+        },
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{{cuerpoWebhook}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Los créditos no cambiaron con el evento repetido",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Siguen siendo los mismos\", () => pm.expect(pm.response.json().creditosIa).to.eql(Number(pm.collectionVariables.get(\"creditosAntes\")) + 300));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/salon",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "salon"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenA}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Ya en PRO: pedir otra vez la suscripción → 409",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 409\", () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos/suscripcion",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pagos",
+            "suscripcion"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenA}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Ya en PRO: se puede crear el tercer estilista",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/estilistas",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "estilistas"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenA}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"nombre\": \"Luis Pérez\", \"email\": \"luis.{{sufijo}}@navaja.co\", \"password\": \"luis123456\", \"servicioIds\": [\"{{servicioCorteId}}\"]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Webhook firmado: compró el paquete de créditos",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const cuerpo = JSON.stringify({ id: \"evt_paquete_\" + pm.collectionVariables.get(\"sufijo\"), object: \"event\", api_version: \"2026-09-30.endive\", type: \"checkout.session.completed\",",
+              "  data: { object: { id: \"cs_test_paquete_\" + pm.collectionVariables.get(\"sufijo\"), object: \"checkout.session\", mode: \"payment\", payment_status: \"paid\",",
+              "    subscription: null,",
+              "    metadata: { salonId: String(pm.collectionVariables.get(\"salonIdA\")), tipo: \"PAQUETE_CREDITOS\" } } } });",
+              "const t = Math.floor(Date.now() / 1000);",
+              "const secreto = pm.variables.replaceIn(\"{{secretoWebhook}}\");",
+              "const firma = CryptoJS.HmacSHA256(t + \".\" + cuerpo, secreto).toString(CryptoJS.enc.Hex);",
+              "pm.collectionVariables.set(\"cuerpoWebhook\", cuerpo);",
+              "pm.collectionVariables.set(\"firmaWebhook\", \"t=\" + t + \",v1=\" + firma);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Lo procesó\", () => pm.expect(pm.response.json().procesado).to.eql(true));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Stripe-Signature",
+            "value": "{{firmaWebhook}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos/webhook",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pagos",
+            "webhook"
+          ]
+        },
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{{cuerpoWebhook}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "El paquete sumó 200 créditos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Sumó 200 más\", () => pm.expect(pm.response.json().creditosIa).to.eql(Number(pm.collectionVariables.get(\"creditosAntes\")) + 500));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/salon",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "salon"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenA}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Webhook con firma falsa → 400",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const cuerpo = JSON.stringify({ id: \"evt_paquete_\" + pm.collectionVariables.get(\"sufijo\"), object: \"event\", api_version: \"2026-09-30.endive\", type: \"checkout.session.completed\",",
+              "  data: { object: { id: \"cs_test_paquete_\" + pm.collectionVariables.get(\"sufijo\"), object: \"checkout.session\", mode: \"payment\", payment_status: \"paid\",",
+              "    subscription: null,",
+              "    metadata: { salonId: String(pm.collectionVariables.get(\"salonIdA\")), tipo: \"PAQUETE_CREDITOS\" } } } });",
+              "const t = Math.floor(Date.now() / 1000);",
+              "const secreto = pm.variables.replaceIn(\"whsec_esta_no_es_la_firma\");",
+              "const firma = CryptoJS.HmacSHA256(t + \".\" + cuerpo, secreto).toString(CryptoJS.enc.Hex);",
+              "pm.collectionVariables.set(\"cuerpoWebhook\", cuerpo);",
+              "pm.collectionVariables.set(\"firmaWebhook\", \"t=\" + t + \",v1=\" + firma);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Stripe-Signature",
+            "value": "{{firmaWebhook}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos/webhook",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pagos",
+            "webhook"
+          ]
+        },
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{{cuerpoWebhook}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Webhook firmado: canceló la suscripción",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const cuerpo = JSON.stringify({ id: \"evt_cancela_\" + pm.collectionVariables.get(\"sufijo\"), object: \"event\", api_version: \"2026-09-30.endive\", type: \"customer.subscription.deleted\",",
+              "  data: { object: { id: \"sub_\" + pm.collectionVariables.get(\"sufijo\"), object: \"subscription\", status: \"canceled\" } } });",
+              "const t = Math.floor(Date.now() / 1000);",
+              "const secreto = pm.variables.replaceIn(\"{{secretoWebhook}}\");",
+              "const firma = CryptoJS.HmacSHA256(t + \".\" + cuerpo, secreto).toString(CryptoJS.enc.Hex);",
+              "pm.collectionVariables.set(\"cuerpoWebhook\", cuerpo);",
+              "pm.collectionVariables.set(\"firmaWebhook\", \"t=\" + t + \",v1=\" + firma);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Lo procesó\", () => pm.expect(pm.response.json().procesado).to.eql(true));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Stripe-Signature",
+            "value": "{{firmaWebhook}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos/webhook",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "pagos",
+            "webhook"
+          ]
+        },
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{{cuerpoWebhook}}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Después de cancelar: vuelve a GRATIS y conserva sus créditos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+              "const r = pm.response.json();",
+              "pm.test(\"Plan GRATIS\", () => pm.expect(r.plan).to.eql(\"GRATIS\"));",
+              "pm.test(\"Conserva los créditos\", () => pm.expect(r.creditosIa).to.eql(Number(pm.collectionVariables.get(\"creditosAntes\")) + 500));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/salon",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "salon"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenA}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

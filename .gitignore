@@ -1,0 +1,13 @@
+node_modules/
+resultado.json
+notas.csv
+
+# Java
+target/
+*.class
+
+# Secretos: nunca se suben
+/secrets.properties
+
+# Material privado de la profe (guía, solución y scripts): NO se sube al repo
+_docente/
