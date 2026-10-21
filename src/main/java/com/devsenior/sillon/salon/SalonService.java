@@ -83,4 +83,33 @@ public class SalonService {
         }
         return candidato;
     }
+    public ConfiguracionSalon obtenerConfiguracionPorId(Long salonId) {
+        Salon salon = salonRepository.findById(salonId)
+                .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
+        return salon.getConfiguracion();
+    }
+
+    @Transactional
+    public ConfiguracionSalon actualizarConfiguracion(Long salonId, ConfiguracionSalonRequest request) {
+        Salon salon = salonRepository.findById(salonId)
+                .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
+
+        if (request.horaCierre().isBefore(request.horaApertura()) || request.horaCierre().equals(request.horaApertura())) {
+            throw new ExcepcionesNegocio.ReglaNegocioException("La hora de cierre debe ser posterior a la de apertura");
+        }
+
+        ConfiguracionSalon config = salon.getConfiguracion();
+        if (config == null) {
+            config = new ConfiguracionSalon();
+        }
+        config.setHoraApertura(request.horaApertura());
+        config.setHoraCierre(request.horaCierre());
+        config.setAbreDomingos(request.abreDomingos());
+        config.setIntervaloMinutos(request.intervaloMinutos());
+
+        salon.setConfiguracion(config);
+        salonRepository.save(salon);
+
+        return config;
+    }
 }

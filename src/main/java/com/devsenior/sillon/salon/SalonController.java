@@ -26,4 +26,18 @@ public class SalonController {
         SalonRespuesta respuesta = salonService.obtenerPorSlug(slug);
         return ResponseEntity.ok(respuesta);
     }
+    @GetMapping("/mi-salon/configuracion")
+    public ResponseEntity<ConfiguracionSalon> obtenerMiConfiguracion(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.devsenior.sillon.seguridad.UsuarioAutenticado principal) {
+        ConfiguracionSalon config = salonService.obtenerConfiguracionPorId(principal.salonId());
+        return ResponseEntity.ok(config);
+    }
+
+    @PutMapping("/mi-salon/configuracion")
+    public ResponseEntity<ConfiguracionSalon> actualizarConfiguracion(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.devsenior.sillon.seguridad.UsuarioAutenticado principal,
+            @Valid @RequestBody ConfiguracionSalonRequest request) {
+        ConfiguracionSalon config = salonService.actualizarConfiguracion(principal.salonId(), request);
+        return ResponseEntity.ok(config);
+    }
 }
