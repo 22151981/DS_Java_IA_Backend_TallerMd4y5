@@ -6,9 +6,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 @RestController
+@Tag(name = "8 Solicitudes")
 @RequestMapping("/api/solicitudes")
 public class SolicitudController {
     private final SolicitudContactoRepository repository;

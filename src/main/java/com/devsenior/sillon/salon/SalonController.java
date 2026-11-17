@@ -3,8 +3,10 @@ package com.devsenior.sillon.salon;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
+@Tag(name = "2 Mi salón")
 @RequestMapping("/api/salones")
 public class SalonController {
 

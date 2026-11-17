@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.time.LocalDate;
 import com.devsenior.sillon.chat.ChatRequest;
@@ -20,6 +21,7 @@ import com.devsenior.sillon.chat.ChatRespuesta;
 import com.devsenior.sillon.chat.ChatService;
 
 @RestController
+@Tag(name = "0 Público")
 @RequestMapping("/api/publico/salones")
 public class PublicoController {
 
