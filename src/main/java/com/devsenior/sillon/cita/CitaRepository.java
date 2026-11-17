@@ -16,6 +16,9 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
 
     Optional<Cita> findByIdAndSalonId(Long id, Long salonId);
 
+    @Query("SELECT c FROM Cita c WHERE c.salon.id = :salonId AND c.estilista.id = :estilistaId AND c.estado IN (com.devsenior.sillon.cita.EstadoCita.PENDIENTE, com.devsenior.sillon.cita.EstadoCita.CONFIRMADA) AND c.inicio >= :inicio AND c.inicio < :fin ORDER BY c.inicio ASC")
+    List<Cita> listarOcupadasPorEstilistaDia(@Param("salonId") Long salonId, @Param("estilistaId") Long estilistaId, @Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
+
     @Query("SELECT COUNT(c) > 0 FROM Cita c WHERE c.salon.id = :salonId AND c.estilista.id = :estilistaId AND c.estado IN (com.devsenior.sillon.cita.EstadoCita.PENDIENTE, com.devsenior.sillon.cita.EstadoCita.CONFIRMADA) AND c.inicio < :fin AND c.fin > :inicio")
     boolean existeCruceDeHorario(@Param("salonId") Long salonId, @Param("estilistaId") Long estilistaId, @Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 }
