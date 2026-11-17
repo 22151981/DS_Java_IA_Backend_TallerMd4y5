@@ -15,15 +15,20 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import com.devsenior.sillon.chat.ChatRequest;
+import com.devsenior.sillon.chat.ChatRespuesta;
+import com.devsenior.sillon.chat.ChatService;
 
 @RestController
 @RequestMapping("/api/publico/salones")
 public class PublicoController {
 
     private final PublicoService publicoService;
+    private final ChatService chatService;
 
-    public PublicoController(PublicoService publicoService) {
+    public PublicoController(PublicoService publicoService, ChatService chatService) {
         this.publicoService = publicoService;
+        this.chatService = chatService;
     }
 
     @GetMapping("/{slug}")
@@ -38,6 +43,11 @@ public class PublicoController {
             @RequestParam Long estilistaId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
         return ResponseEntity.ok(publicoService.consultarDisponibilidad(slug, servicioId, estilistaId, fecha));
+    }
+
+    @PostMapping("/{slug}/chat")
+    public ResponseEntity<ChatRespuesta> chat(@PathVariable String slug, @Valid @RequestBody ChatRequest request) {
+        return ResponseEntity.ok(chatService.conversar(slug, request));
     }
 
     @PostMapping("/{slug}/reservas")

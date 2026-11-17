@@ -37,6 +37,13 @@ public class CitaController {
         return ResponseEntity.ok(citaService.listarCitasPorDia(principal.salonId(), principal.usuarioId(), rol, fecha));
     }
 
+    @PostMapping("/{id}/recordatorio")
+    @PreAuthorize("hasRole('DUENO')")
+    public ResponseEntity<RecordatorioRespuesta> recordatorio(@AuthenticationPrincipal UsuarioAutenticado principal,
+                                                               @PathVariable Long id) {
+        return ResponseEntity.ok(citaService.generarRecordatorio(principal.salonId(), id));
+    }
+
     @PatchMapping("/{id}/estado")
     @PreAuthorize("hasAnyRole('DUENO','ESTILISTA')")
     public ResponseEntity<CitaRespuesta> cambiarEstado(@AuthenticationPrincipal UsuarioAutenticado principal,

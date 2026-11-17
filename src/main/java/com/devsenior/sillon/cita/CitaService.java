@@ -16,6 +16,17 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.devsenior.sillon.ia.AsistenteIaService;
+import com.devsenior.sillon.ia.CreditoIaService;
+import com.devsenior.sillon.ia.RespuestaIa;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import org.springframework.core.io.ClassPathResource;
+import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
+import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
+import java.util.Locale;
 
 @Service
 public class CitaService {
@@ -26,10 +37,13 @@ public class CitaService {
     private final SalonRepository salonRepository;
     private final ReglasAgenda reglasAgenda;
     private final Clock clock;
+    private final AsistenteIaService asistenteIaService;
+    private final CreditoIaService creditoIaService;
 
     public CitaService(CitaRepository citaRepository, ServicioRepository servicioRepository,
                        UsuarioRepository usuarioRepository, ClienteRepository clienteRepository,
-                       SalonRepository salonRepository, ReglasAgenda reglasAgenda, Clock clock) {
+                       SalonRepository salonRepository, ReglasAgenda reglasAgenda, Clock clock,
+                       AsistenteIaService asistenteIaService, CreditoIaService creditoIaService) {
         this.citaRepository = citaRepository;
         this.servicioRepository = servicioRepository;
         this.usuarioRepository = usuarioRepository;
@@ -37,6 +51,8 @@ public class CitaService {
         this.salonRepository = salonRepository;
         this.reglasAgenda = reglasAgenda;
         this.clock = clock;
+        this.asistenteIaService = asistenteIaService;
+        this.creditoIaService = creditoIaService;
     }
 
     @Transactional
@@ -107,5 +123,49 @@ public class CitaService {
         }
         cita.setEstado(nuevoEstado); cita.setFechaActualizacion(LocalDateTime.now(clock));
         return CitaRespuesta.desdeEntidad(citaRepository.saveAndFlush(cita));
+    }
+
+    public RecordatorioRespuesta generarRecordatorio(Long salonId, Long citaId) {
+        Cita cita = citaRepository.findByIdAndSalonId(citaId, salonId)
+                .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Cita no encontrada en este salón"));
+        if (cita.getEstado() != EstadoCita.PENDIENTE && cita.getEstado() != EstadoCita.CONFIRMADA) {
+            throw new ExcepcionesNegocio.ReglaNegocioException("Solo se pueden recordar citas pendientes o confirmadas");
+        }
+        creditoIaService.verificarDisponibilidad(salonId);
+
+        Locale colombia = Locale.forLanguageTag("es-CO");
+        String dia = cita.getInicio().getDayOfWeek().getDisplayName(TextStyle.FULL, colombia)
+                + " " + cita.getInicio().getDayOfMonth() + " de "
+                + cita.getInicio().getMonth().getDisplayName(TextStyle.FULL, colombia);
+        String hora = cita.getInicio().format(DateTimeFormatter.ofPattern("h:mm a", colombia))
+                .replace("\u00A0", " ").replace("\u202F", " ");
+        NumberFormat moneda = NumberFormat.getInstance(colombia);
+        String precio = "$" + moneda.format(cita.getPrecio().setScale(0, java.math.RoundingMode.HALF_UP));
+        Salon salon = cita.getSalon();
+        String datos = "Servicio: " + cita.getServicio().getNombre() + " (" + cita.getServicio().getDuracionMinutos() + " minutos)\n"
+                + "Estilista: " + cita.getEstilista().getNombre() + "\n"
+                + "Fecha: " + dia + "\nHora: " + hora + "\nValor: " + precio
+                + "\nDirección: " + salon.getDireccion() + ", " + salon.getCiudad();
+
+        String prompt;
+        try {
+            prompt = new String(new ClassPathResource("prompts/recordatorio.txt").getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        } catch (Exception ex) { throw new RuntimeException("No se pudo cargar el prompt", ex); }
+        prompt = prompt.replace("{salon}", salon.getNombre()).replace("{cliente}", cita.getCliente().getNombre()).replace("{datos}", datos);
+
+        RespuestaIa ia = asistenteIaService.generar("Generas recordatorios en JSON estricto.", prompt);
+        int restantes = creditoIaService.consumirCredito(salonId);
+        try {
+            JsonNode raiz = new ObjectMapper().readTree(ia.contenidoJson());
+            JsonNode nodoMensaje = raiz.get("mensaje");
+            if (nodoMensaje == null || !nodoMensaje.isTextual() || nodoMensaje.asText().isBlank() || nodoMensaje.asText().length() > 700) {
+                throw new ExcepcionesNegocio.PasarelaIaInvalidaException("La respuesta de IA no contiene un mensaje válido");
+            }
+            return new RecordatorioRespuesta(citaId, cita.getCliente().getTelefono(), nodoMensaje.asText(), restantes, ia.factura());
+        } catch (ExcepcionesNegocio.PasarelaIaInvalidaException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ExcepcionesNegocio.PasarelaIaInvalidaException("Respuesta JSON inválida del proveedor de IA");
+        }
     }
 }

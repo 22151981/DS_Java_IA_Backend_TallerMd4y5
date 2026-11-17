@@ -54,4 +54,12 @@ public class ExcepcionesNegocio {
             super(mensaje);
         }
     }
+
+    public static class PasarelaIaInvalidaException extends RuntimeException {
+        public PasarelaIaInvalidaException(String mensaje) { super(mensaje); }
+    }
+
+    public static class ServicioIaNoDisponibleException extends RuntimeException {
+        public ServicioIaNoDisponibleException(String mensaje) { super(mensaje); }
+    }
 }

@@ -106,12 +106,16 @@ public class ManejadorGlobalErrores {
     }
     @ExceptionHandler(ExcepcionesNegocio.PagoRequeridoException.class)
     public ResponseEntity<ErrorRespuesta> manejarPagoRequerido(ExcepcionesNegocio.PagoRequeridoException ex) {
-        ErrorRespuesta error = new ErrorRespuesta(
-                HttpStatus.PAYMENT_REQUIRED.value(),
-                "Payment Required",
-                ex.getMessage(),
-                LocalDateTime.now(clock)
-        );
-        return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(error);
+        return construirRespuesta(HttpStatus.PAYMENT_REQUIRED, ex.getMessage());
+    }
+
+    @ExceptionHandler(ExcepcionesNegocio.PasarelaIaInvalidaException.class)
+    public ResponseEntity<ErrorRespuesta> manejarIaInvalida(ExcepcionesNegocio.PasarelaIaInvalidaException ex) {
+        return construirRespuesta(HttpStatus.BAD_GATEWAY, ex.getMessage());
+    }
+
+    @ExceptionHandler(ExcepcionesNegocio.ServicioIaNoDisponibleException.class)
+    public ResponseEntity<ErrorRespuesta> manejarIaNoDisponible(ExcepcionesNegocio.ServicioIaNoDisponibleException ex) {
+        return construirRespuesta(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 }
