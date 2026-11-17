@@ -48,7 +48,7 @@ public class AuthController {
             throw new ExcepcionesNegocio.CredencialesInvalidasException("Credenciales inválidas");
         }
 
-        String token = jwtUtil.generarToken(usuario.getEmail(), usuario.getSalon().getId(), usuario.getRol().name());
+        String token = jwtUtil.generarToken(usuario.getEmail(), usuario.getSalon().getId(), usuario.getRol().name(), usuario.getId());
         return ResponseEntity.ok(new AuthRespuesta(
                 token,
                 "Bearer",

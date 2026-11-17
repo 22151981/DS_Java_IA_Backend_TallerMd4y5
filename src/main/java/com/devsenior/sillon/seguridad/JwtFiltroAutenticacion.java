@@ -41,7 +41,8 @@ public class JwtFiltroAutenticacion extends OncePerRequestFilter {
                         ? List.of(new SimpleGrantedAuthority("ROLE_" + rol))
                         : Collections.emptyList();
 
-                UsuarioAutenticado principal = new UsuarioAutenticado(email, salonId, rol);
+                Long usuarioId = jwtUtil.extraerUsuarioId(token);
+                UsuarioAutenticado principal = new UsuarioAutenticado(email, salonId, rol, usuarioId);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(principal, null, authorities);

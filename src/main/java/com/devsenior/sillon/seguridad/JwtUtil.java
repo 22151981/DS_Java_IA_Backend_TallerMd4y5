@@ -25,6 +25,10 @@ public class JwtUtil {
     }
 
     public String generarToken(String email, Long salonId, String rol) {
+        return generarToken(email, salonId, rol, null);
+    }
+
+    public String generarToken(String email, Long salonId, String rol, Long usuarioId) {
         Instant ahora = clock.instant();
         Instant expiracion = ahora.plusMillis(duracionMilisegundos);
 
@@ -32,6 +36,7 @@ public class JwtUtil {
                 .subject(email)
                 .claim("salonId", salonId)
                 .claim("rol", rol)
+                .claim("usuarioId", usuarioId)
                 .issuedAt(Date.from(ahora))
                 .expiration(Date.from(expiracion))
                 .signWith(key)
@@ -60,6 +65,12 @@ public class JwtUtil {
 
     public String extraerRol(String token) {
         return extraerClaims(token).get("rol", String.class);
+    }
+
+    public Long extraerUsuarioId(String token) {
+        Object usuarioIdObj = extraerClaims(token).get("usuarioId");
+        if (usuarioIdObj instanceof Number num) return num.longValue();
+        return null;
     }
 
     public boolean esTokenValido(String token) {

@@ -73,6 +73,7 @@ public class SeguridadConfig {
                             "/api/pagos/webhook",
                             "/api/pagos/resultado"
                     ).permitAll()
+                    .requestMatchers("/api/citas/**").authenticated()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFiltroAutenticacion, UsernamePasswordAuthenticationFilter.class);

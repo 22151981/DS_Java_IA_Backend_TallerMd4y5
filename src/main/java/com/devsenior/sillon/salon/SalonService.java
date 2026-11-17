@@ -70,7 +70,7 @@ public class SalonService {
 
         dueno = usuarioRepository.save(dueno);
 
-        String token = jwtUtil.generarToken(dueno.getEmail(), salon.getId(), dueno.getRol().name());
+        String token = jwtUtil.generarToken(dueno.getEmail(), salon.getId(), dueno.getRol().name(), dueno.getId());
 
         return new AuthRespuesta(
                 token,
