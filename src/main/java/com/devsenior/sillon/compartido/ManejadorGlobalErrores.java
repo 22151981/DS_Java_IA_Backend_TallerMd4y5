@@ -3,6 +3,8 @@ package com.devsenior.sillon.compartido;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -50,6 +52,11 @@ public class ManejadorGlobalErrores {
     @ExceptionHandler(ExcepcionesNegocio.AccionNoPermitidaException.class)
     public ResponseEntity<ErrorRespuesta> manejar403(ExcepcionesNegocio.AccionNoPermitidaException ex) {
         return construirRespuesta(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
+    public ResponseEntity<ErrorRespuesta> manejarAccesoDenegado(Exception ex) {
+        return construirRespuesta(HttpStatus.FORBIDDEN, "No tienes permiso para realizar esta acción");
     }
 
     @ExceptionHandler(ExcepcionesNegocio.CredencialesInvalidasException.class)

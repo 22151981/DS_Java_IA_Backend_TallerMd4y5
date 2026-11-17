@@ -126,34 +126,18 @@ public class CitaService {
         return CitaRespuesta.desdeEntidad(citaRepository.saveAndFlush(cita));
     }
 
-    @Transactional(readOnly = true)
     public RecordatorioRespuesta generarRecordatorio(Long salonId, Long citaId) {
-        Cita cita = citaRepository.findByIdAndSalonId(citaId, salonId)
-                .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Cita no encontrada en este salón"));
-        if (cita.getEstado() != EstadoCita.PENDIENTE && cita.getEstado() != EstadoCita.CONFIRMADA) {
-            throw new ExcepcionesNegocio.ReglaNegocioException("Solo se pueden recordar citas pendientes o confirmadas");
-        }
-        creditoIaService.verificarDisponibilidad(salonId);
-
-        Locale colombia = Locale.forLanguageTag("es-CO");
-        String dia = cita.getInicio().getDayOfWeek().getDisplayName(TextStyle.FULL, colombia)
-                + " " + cita.getInicio().getDayOfMonth() + " de "
-                + cita.getInicio().getMonth().getDisplayName(TextStyle.FULL, colombia);
-        String hora = cita.getInicio().format(DateTimeFormatter.ofPattern("h:mm a", colombia))
-                .replace("\u00A0", " ").replace("\u202F", " ");
-        NumberFormat moneda = NumberFormat.getInstance(colombia);
-        String precio = "$" + moneda.format(cita.getPrecio().setScale(0, java.math.RoundingMode.HALF_UP));
-        Salon salon = cita.getSalon();
-        String datos = "Servicio: " + cita.getServicio().getNombre() + " (" + cita.getServicio().getDuracionMinutos() + " minutos)\n"
-                + "Estilista: " + cita.getEstilista().getNombre() + "\n"
-                + "Fecha: " + dia + "\nHora: " + hora + "\nValor: " + precio
-                + "\nDirección: " + salon.getDireccion() + ", " + salon.getCiudad();
+        DatosRecordatorio datos = cargarDatosRecordatorio(salonId, citaId);
 
         String prompt;
         try {
             prompt = new String(new ClassPathResource("prompts/recordatorio.txt").getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         } catch (Exception ex) { throw new RuntimeException("No se pudo cargar el prompt", ex); }
-        prompt = prompt.replace("{salon}", salon.getNombre()).replace("{cliente}", cita.getCliente().getNombre()).replace("{datos}", datos);
+        String datosFormateados = "Servicio: " + datos.nombreServicio() + " (" + datos.duracionMinutos() + " minutos)\n"
+                + "Estilista: " + datos.nombreEstilista() + "\n"
+                + "Fecha: " + datos.fechaFormateada() + "\nHora: " + datos.horaFormateada()
+                + "\nValor: " + datos.valorFormateado() + "\nDirección: " + datos.direccionCompleta();
+        prompt = prompt.replace("{salon}", datos.nombreSalon()).replace("{cliente}", datos.nombreCliente()).replace("{datos}", datosFormateados);
 
         RespuestaIa ia = asistenteIaService.generar("Generas recordatorios en JSON estricto.", prompt);
         int restantes = creditoIaService.consumirCredito(salonId);
@@ -163,11 +147,39 @@ public class CitaService {
             if (nodoMensaje == null || !nodoMensaje.isTextual() || nodoMensaje.asText().isBlank() || nodoMensaje.asText().length() > 700) {
                 throw new ExcepcionesNegocio.PasarelaIaInvalidaException("La respuesta de IA no contiene un mensaje válido");
             }
-            return new RecordatorioRespuesta(citaId, cita.getCliente().getTelefono(), nodoMensaje.asText(), restantes, ia.factura());
+            return new RecordatorioRespuesta(citaId, datos.telefonoCliente(), nodoMensaje.asText(), restantes, ia.factura());
         } catch (ExcepcionesNegocio.PasarelaIaInvalidaException ex) {
             throw ex;
         } catch (Exception ex) {
             throw new ExcepcionesNegocio.PasarelaIaInvalidaException("Respuesta JSON inválida del proveedor de IA");
         }
     }
+
+    @Transactional(readOnly = true)
+    protected DatosRecordatorio cargarDatosRecordatorio(Long salonId, Long citaId) {
+        Cita cita = citaRepository.findByIdAndSalonId(citaId, salonId)
+                .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Cita no encontrada en este salón"));
+        if (cita.getEstado() != EstadoCita.PENDIENTE && cita.getEstado() != EstadoCita.CONFIRMADA) {
+            throw new ExcepcionesNegocio.ReglaNegocioException("Solo se pueden recordar citas pendientes o confirmadas");
+        }
+        creditoIaService.verificarDisponibilidad(salonId);
+
+        Locale colombia = Locale.forLanguageTag("es-CO");
+        String fecha = cita.getInicio().getDayOfWeek().getDisplayName(TextStyle.FULL, colombia)
+                + " " + cita.getInicio().getDayOfMonth() + " de "
+                + cita.getInicio().getMonth().getDisplayName(TextStyle.FULL, colombia);
+        String hora = cita.getInicio().format(DateTimeFormatter.ofPattern("h:mm a", colombia))
+                .replace("\u00A0", " ").replace("\u202F", " ");
+        String valor = "$" + NumberFormat.getInstance(colombia).format(cita.getPrecio().setScale(0, java.math.RoundingMode.HALF_UP));
+        Salon salon = cita.getSalon();
+        return new DatosRecordatorio(
+                cita.getCliente().getTelefono(), salon.getNombre(), cita.getCliente().getNombre(),
+                cita.getServicio().getNombre(), cita.getServicio().getDuracionMinutos(), cita.getEstilista().getNombre(),
+                fecha, hora, valor, salon.getDireccion() + ", " + salon.getCiudad());
+    }
+
+    protected record DatosRecordatorio(String telefonoCliente, String nombreSalon, String nombreCliente,
+                                        String nombreServicio, Integer duracionMinutos, String nombreEstilista,
+                                        String fechaFormateada, String horaFormateada, String valorFormateado,
+                                        String direccionCompleta) {}
 }

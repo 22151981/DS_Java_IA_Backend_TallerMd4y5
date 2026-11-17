@@ -103,6 +103,13 @@ public class SalonService {
     }
 
     @Transactional(readOnly = true)
+    public SalonRespuesta obtenerSalonPorId(Long salonId) {
+        Salon salon = salonRepository.findById(salonId)
+                .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
+        return SalonRespuesta.desdeEntidad(salon);
+    }
+
+    @Transactional(readOnly = true)
     public ConfiguracionSalon obtenerConfiguracionPorId(Long salonId) {
         Salon salon = salonRepository.findById(salonId)
                 .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
@@ -119,7 +126,7 @@ public class SalonService {
         Salon salon = salonRepository.findById(salonId)
                 .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
 
-        if (request.horaCierre().isBefore(request.horaApertura()) || request.horaCierre().equals(request.horaApertura())) {
+        if (!request.horaApertura().isBefore(request.horaCierre())) {
             throw new ExcepcionesNegocio.ReglaNegocioException("La hora de cierre debe ser posterior a la de apertura");
         }
 

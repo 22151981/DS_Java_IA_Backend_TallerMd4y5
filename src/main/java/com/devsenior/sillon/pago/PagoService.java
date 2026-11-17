@@ -16,6 +16,8 @@ import com.stripe.param.checkout.SessionCreateParams;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -23,6 +25,8 @@ import java.util.Map;
 
 @Service
 public class PagoService {
+
+    private static final Logger logger = LoggerFactory.getLogger(PagoService.class);
 
     private final StripeClient stripeClient;
     private final SalonRepository salonRepository;
@@ -82,6 +86,7 @@ public class PagoService {
             Session session = Session.create(params);
             return new SesionPagoRespuesta(TipoCompra.SUSCRIPCION_PRO, session.getId(), session.getUrl());
         } catch (StripeException ex) {
+            logger.error("Error Stripe: {}", ex.getMessage(), ex);
             throw new ExcepcionesNegocio.PasarelaException("Error al crear la sesión de suscripción");
         }
     }
@@ -107,6 +112,7 @@ public class PagoService {
             Session session = Session.create(params);
             return new SesionPagoRespuesta(TipoCompra.PAQUETE_CREDITOS, session.getId(), session.getUrl());
         } catch (StripeException ex) {
+            logger.error("Error Stripe: {}", ex.getMessage(), ex);
             throw new ExcepcionesNegocio.PasarelaException("Error al crear la sesión de créditos");
         }
     }
@@ -133,26 +139,37 @@ public class PagoService {
         Object objeto = event.getDataObjectDeserializer().getObject().orElse(null);
 
         if ("checkout.session.completed".equals(event.getType()) && objeto instanceof Session session) {
-            if ("paid".equals(session.getPaymentStatus())) {
+            String estadoPago = session.getPaymentStatus();
+            if (estadoPago == null || "paid".equalsIgnoreCase(estadoPago)) {
                 Map<String, String> metadata = session.getMetadata();
-                if (metadata != null) {
-                    String salonIdTexto = metadata.get("salonId");
-                    String tipoCompraTexto = metadata.get("tipoCompra");
-                    if (salonIdTexto != null && tipoCompraTexto != null) {
-                        try {
-                            Long salonId = Long.valueOf(salonIdTexto);
-                            Salon salon = salonRepository.findById(salonId)
-                                    .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
-                            if ("SUSCRIPCION_PRO".equals(tipoCompraTexto)) {
-                                salon.setPlan(Plan.PRO);
-                                salon.setStripeSuscripcionId(session.getSubscription());
-                                salon.setCreditosIa(salon.getCreditosIa() == null ? 300 : salon.getCreditosIa() + 300);
-                            } else if ("PAQUETE_CREDITOS".equals(tipoCompraTexto)) {
-                                salon.setCreditosIa(salon.getCreditosIa() == null ? 200 : salon.getCreditosIa() + 200);
-                            }
-                            salonRepository.save(salon);
-                        } catch (NumberFormatException ignored) {
+                String salonIdTexto = metadata == null ? null : metadata.get("salonId");
+                if (salonIdTexto == null) {
+                    salonIdTexto = session.getClientReferenceId();
+                }
+
+                String tipoCompraTexto = metadata == null ? null : metadata.get("tipoCompra");
+                if (tipoCompraTexto == null) {
+                    if ("subscription".equals(session.getMode())) {
+                        tipoCompraTexto = "SUSCRIPCION_PRO";
+                    } else if ("payment".equals(session.getMode())) {
+                        tipoCompraTexto = "PAQUETE_CREDITOS";
+                    }
+                }
+
+                if (salonIdTexto != null && tipoCompraTexto != null) {
+                    try {
+                        Long salonId = Long.valueOf(salonIdTexto);
+                        Salon salon = salonRepository.findById(salonId)
+                                .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
+                        if ("SUSCRIPCION_PRO".equals(tipoCompraTexto)) {
+                            salon.setPlan(Plan.PRO);
+                            salon.setStripeSuscripcionId(session.getSubscription());
+                            salon.setCreditosIa(salon.getCreditosIa() == null ? 300 : salon.getCreditosIa() + 300);
+                        } else if ("PAQUETE_CREDITOS".equals(tipoCompraTexto)) {
+                            salon.setCreditosIa(salon.getCreditosIa() == null ? 200 : salon.getCreditosIa() + 200);
                         }
+                        salonRepository.saveAndFlush(salon);
+                    } catch (NumberFormatException ignored) {
                     }
                 }
             }

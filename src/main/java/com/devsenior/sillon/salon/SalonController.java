@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @Tag(name = "2 Mi salón")
-@RequestMapping("/api/salones")
+@RequestMapping({"/api/salones", "/api/salon"})
 public class SalonController {
 
     private final SalonService salonService;
@@ -16,9 +16,12 @@ public class SalonController {
         this.salonService = salonService;
     }
 
-    @GetMapping("/mi-salon/configuracion")
+    @GetMapping({"/mi-salon/configuracion", ""})
     public ResponseEntity<ConfiguracionSalon> obtenerMiConfiguracion(
             @org.springframework.security.core.annotation.AuthenticationPrincipal com.devsenior.sillon.seguridad.UsuarioAutenticado principal) {
+        if (principal == null || principal.salonId() == null) {
+            throw new com.devsenior.sillon.compartido.ExcepcionesNegocio.CredencialesInvalidasException("Usuario no autenticado");
+        }
         ConfiguracionSalon config = salonService.obtenerConfiguracionPorId(principal.salonId());
         return ResponseEntity.ok(config);
     }
@@ -27,6 +30,9 @@ public class SalonController {
     public ResponseEntity<ConfiguracionSalon> actualizarConfiguracion(
             @org.springframework.security.core.annotation.AuthenticationPrincipal com.devsenior.sillon.seguridad.UsuarioAutenticado principal,
             @Valid @RequestBody ConfiguracionSalonRequest request) {
+        if (principal == null || principal.salonId() == null) {
+            throw new com.devsenior.sillon.compartido.ExcepcionesNegocio.CredencialesInvalidasException("Usuario no autenticado");
+        }
         ConfiguracionSalon config = salonService.actualizarConfiguracion(principal.salonId(), request);
         return ResponseEntity.ok(config);
     }
