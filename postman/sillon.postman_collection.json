@@ -1,0 +1,2510 @@
+{
+  "info": {
+    "_postman_id": "c8d0fb03-sillon-api",
+    "name": "Sillon API - Pruebas Automatizadas",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Registro, login y configuración",
+      "item": [
+        {
+          "name": "Registrar el salón A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"sufijo\", Date.now().toString());",
+                  "function pad(n){ return String(n).padStart(2,\"0\"); }",
+                  "function iso(d){ return d.getFullYear()+\"-\"+pad(d.getMonth()+1)+\"-\"+pad(d.getDate()); }",
+                  "const hoy = new Date();",
+                  "let valido = new Date(hoy); valido.setDate(valido.getDate()+2); while (valido.getDay()===0) valido.setDate(valido.getDate()+1);",
+                  "pm.collectionVariables.set(\"fechaValida\", iso(valido));",
+                  "let domingo = new Date(hoy); domingo.setDate(domingo.getDate()+((7-domingo.getDay())%7 || 7)); pm.collectionVariables.set(\"fechaDomingo\", iso(domingo));",
+                  "let pasada = new Date(hoy); pasada.setDate(pasada.getDate()-2); pm.collectionVariables.set(\"fechaPasada\", iso(pasada));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida token\", () => pm.expect(r[\"token\"]).to.exist);",
+                  "pm.test(\"Valida rol\", () => pm.expect(r[\"rol\"]).to.exist);",
+                  "pm.collectionVariables.set(\"tokenA\", pm.response.json().token);",
+                  "pm.collectionVariables.set(\"slugA\", pm.response.json().salonSlug);",
+                  "pm.collectionVariables.set(\"salonAId\", pm.response.json().salonId);",
+                  "pm.test(\"El dueño queda registrado\", () => pm.expect(pm.response.json().rol).to.eql(\"DUENO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/registro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "registro"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"salonNombre\": \"Barbería La Navaja {{sufijo}}\", \"ciudad\": \"Medellín\", \"direccion\": \"Calle 10 # 43-20\", \"telefono\": \"604 555 1234\", \"nombre\": \"Camilo Ríos\", \"email\": \"camilo.{{sufijo}}@navaja.co\", \"password\": \"secreta123\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Registro con correo duplicado → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/registro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "registro"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"salonNombre\": \"Otra\", \"ciudad\": \"Cali\", \"direccion\": \"Cra 1\", \"telefono\": \"3000000000\", \"nombre\": \"Otro\", \"email\": \"camilo.{{sufijo}}@navaja.co\", \"password\": \"secreta123\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Registro con datos inválidos → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/registro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "registro"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"salonNombre\": \"\", \"ciudad\": \"Cali\", \"direccion\": \"Cra 1\", \"telefono\": \"3000000000\", \"nombre\": \"Otro\", \"email\": \"no-es-correo\", \"password\": \"123\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Login del dueño A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida token\", () => pm.expect(r[\"token\"]).to.exist);",
+                  "pm.collectionVariables.set(\"tokenA\", pm.response.json().token);",
+                  "pm.test(\"Login entrega rol\", () => pm.expect(pm.response.json().rol).to.eql(\"DUENO\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"camilo.{{sufijo}}@navaja.co\", \"password\": \"secreta123\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Login con contraseña incorrecta → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"camilo.{{sufijo}}@navaja.co\", \"password\": \"equivocada\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Mi salón sin token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/salones/mi-salon/configuracion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "salones",
+                "mi-salon",
+                "configuracion"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Consultar mi salón",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida plan\", () => pm.expect(r[\"plan\"]).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/salones/mi-salon/configuracion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "salones",
+                "mi-salon",
+                "configuracion"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Configurar horario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida intervaloMinutos\", () => pm.expect(r[\"intervaloMinutos\"]).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/salones/mi-salon/configuracion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "salones",
+                "mi-salon",
+                "configuracion"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"horaApertura\": \"08:00\", \"horaCierre\": \"19:00\", \"abreDomingos\": false, \"intervaloMinutos\": 30}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Horario imposible → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/salones/mi-salon/configuracion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "salones",
+                "mi-salon",
+                "configuracion"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"horaApertura\": \"20:00\", \"horaCierre\": \"08:00\", \"abreDomingos\": false, \"intervaloMinutos\": 30}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Sincronizar horario correcto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/salones/mi-salon/configuracion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "salones",
+                "mi-salon",
+                "configuracion"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"horaApertura\": \"08:00\", \"horaCierre\": \"19:00\", \"abreDomingos\": true, \"intervaloMinutos\": 30}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Catálogo y equipo",
+      "item": [
+        {
+          "name": "Crear servicio Corte clásico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida id\", () => pm.expect(r[\"id\"]).to.exist);",
+                  "pm.collectionVariables.set(\"servicioCorteId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/servicios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "servicios"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Corte clásico\", \"descripcion\": \"Corte con máquina y tijera\", \"duracionMinutos\": 45, \"precio\": 35000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear servicio Arreglo de barba",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida id\", () => pm.expect(r[\"id\"]).to.exist);",
+                  "pm.collectionVariables.set(\"servicioBarbaId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/servicios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "servicios"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Arreglo de barba\", \"duracionMinutos\": 30, \"precio\": 20000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Servicio inválido → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/servicios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "servicios"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Exprés\", \"duracionMinutos\": 5, \"precio\": -1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear estilista Mateo Gil",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida id\", () => pm.expect(r[\"id\"]).to.exist);",
+                  "pm.collectionVariables.set(\"estilistaMateoId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/estilistas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "estilistas"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Mateo Gil\", \"email\": \"mateo.{{sufijo}}@navaja.co\", \"password\": \"mateo12345\", \"servicioIds\": [\"{{servicioCorteId}}\", \"{{servicioBarbaId}}\"]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear estilista Sara Mejía",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida id\", () => pm.expect(r[\"id\"]).to.exist);",
+                  "pm.collectionVariables.set(\"estilistaSaraId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/estilistas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "estilistas"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Sara Mejía\", \"email\": \"sara.{{sufijo}}@navaja.co\", \"password\": \"sara123456\", \"servicioIds\": [\"{{servicioCorteId}}\"]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Tercer estilista en plan GRATIS → 402",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 402\", () => pm.response.to.have.status(402));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/estilistas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "estilistas"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Luis Pérez\", \"email\": \"luis.{{sufijo}}@navaja.co\", \"password\": \"luis123456\", \"servicioIds\": [\"{{servicioCorteId}}\"]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar servicios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/servicios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "servicios"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Listar estilistas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/estilistas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "estilistas"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Agenda: reservas, cruces y estados",
+      "item": [
+        {
+          "name": "Crear cita de Mateo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida id\", () => pm.expect(r[\"id\"]).to.exist);",
+                  "pm.collectionVariables.set(\"citaMateoId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteNombre\": \"Valentina Ruiz\", \"clienteTelefono\": \"3001112233\", \"servicioId\": \"{{servicioBarbaId}}\", \"estilistaId\": \"{{estilistaMateoId}}\", \"inicio\": \"{{fechaValida}}T11:00:00\", \"nota\": \"Barba completa\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear cita de Sara",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida id\", () => pm.expect(r[\"id\"]).to.exist);",
+                  "pm.collectionVariables.set(\"citaSaraId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteNombre\": \"Andrés Gómez\", \"clienteTelefono\": \"3102223344\", \"servicioId\": \"{{servicioCorteId}}\", \"estilistaId\": \"{{estilistaSaraId}}\", \"inicio\": \"{{fechaValida}}T10:30:00\", \"nota\": \"Corte clásico\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cruce de citas → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteNombre\": \"Pedro\", \"clienteTelefono\": \"3203334455\", \"servicioId\": \"{{servicioCorteId}}\", \"estilistaId\": \"{{estilistaSaraId}}\", \"inicio\": \"{{fechaValida}}T10:45:00\", \"nota\": \"Intento cruzado\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cita en domingo → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteNombre\": \"Juliana\", \"clienteTelefono\": \"3154445566\", \"servicioId\": \"{{servicioCorteId}}\", \"estilistaId\": \"{{estilistaSaraId}}\", \"inicio\": \"{{fechaDomingo}}T10:30:00\", \"nota\": \"No abre domingo\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cita en el pasado → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteNombre\": \"Juliana\", \"clienteTelefono\": \"3154445566\", \"servicioId\": \"{{servicioCorteId}}\", \"estilistaId\": \"{{estilistaSaraId}}\", \"inicio\": \"{{fechaPasada}}T10:30:00\", \"nota\": \"Fecha pasada\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar agenda",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas?fecha={{fechaValida}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas?fecha={{fechaValida}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Confirmar estado válido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida estado\", () => pm.expect(r[\"estado\"]).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas/{{citaSaraId}}/estado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas",
+                "{{citaSaraId}}",
+                "estado"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\": \"CONFIRMADA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Completar cita Mateo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas/{{citaMateoId}}/estado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas",
+                "{{citaMateoId}}",
+                "estado"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\": \"COMPLETADA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Transición inválida final → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas/{{citaMateoId}}/estado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas",
+                "{{citaMateoId}}",
+                "estado"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\": \"CONFIRMADA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Aislamiento entre salones y roles",
+      "item": [
+        {
+          "name": "Registrar el salón B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida token\", () => pm.expect(r[\"token\"]).to.exist);",
+                  "pm.collectionVariables.set(\"tokenB\", pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/registro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "registro"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"salonNombre\": \"Salón Aurora {{sufijo}}\", \"ciudad\": \"Bogotá\", \"direccion\": \"Carrera 15 # 85-40\", \"telefono\": \"601 555 9876\", \"nombre\": \"Diana Torres\", \"email\": \"diana.{{sufijo}}@aurora.co\", \"password\": \"aurora1234\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Login estilista Mateo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida token\", () => pm.expect(r[\"token\"]).to.exist);",
+                  "pm.collectionVariables.set(\"tokenMateo\", pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"mateo.{{sufijo}}@navaja.co\", \"password\": \"mateo12345\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Login estilista Sara",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida token\", () => pm.expect(r[\"token\"]).to.exist);",
+                  "pm.collectionVariables.set(\"tokenSara\", pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"sara.{{sufijo}}@navaja.co\", \"password\": \"sara123456\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Salón B no ve cita A → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas/{{citaSaraId}}/estado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas",
+                "{{citaSaraId}}",
+                "estado"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenB}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\": \"CANCELADA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Salón B no ve servicios A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/servicios",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "servicios"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenB}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sara intenta cancelar → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas/{{citaSaraId}}/estado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas",
+                "{{citaSaraId}}",
+                "estado"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenSara}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\": \"CANCELADA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Dueño no entra a administración → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/salones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "salones"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. IA: recordatorio y chatbot",
+      "item": [
+        {
+          "name": "Recordatorio IA cita Sara",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida mensaje\", () => pm.expect(r[\"mensaje\"]).to.exist);",
+                  "pm.test(\"Valida telefonoCliente\", () => pm.expect(r[\"telefonoCliente\"]).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas/{{citaSaraId}}/recordatorio",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas",
+                "{{citaSaraId}}",
+                "recordatorio"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Recordatorio de cita completada → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas/{{citaMateoId}}/recordatorio",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas",
+                "{{citaMateoId}}",
+                "recordatorio"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar salón público",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/publico/salones/{{slugA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "publico",
+                "salones",
+                "{{slugA}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Consultar disponibilidad",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/publico/salones/{{slugA}}/disponibilidad?servicioId={{servicioCorteId}}&estilistaId={{estilistaSaraId}}&fecha={{fechaValida}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "publico",
+                "salones",
+                "{{slugA}}",
+                "disponibilidad?servicioId={{servicioCorteId}}&estilistaId={{estilistaSaraId}}&fecha={{fechaValida}}"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Chat consulta costo y duración",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida respuesta\", () => pm.expect(r[\"respuesta\"]).to.exist);",
+                  "pm.test(\"No escala\", () => pm.expect(pm.response.json().escalado).to.eql(false));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/publico/salones/{{slugA}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "publico",
+                "salones",
+                "{{slugA}}",
+                "chat"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteNombre\": \"Juliana\", \"clienteContacto\": \"315 444 5566\", \"historial\": [{\"rol\": \"CLIENTE\", \"texto\": \"¿Cuánto cuesta el corte clásico y cuánto dura?\"}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Chat quiere agendar → escala",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida respuesta\", () => pm.expect(r[\"respuesta\"]).to.exist);",
+                  "pm.test(\"Valida escalado\", () => pm.expect(r[\"escalado\"]).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/publico/salones/{{slugA}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "publico",
+                "salones",
+                "{{slugA}}",
+                "chat"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteNombre\": \"Juliana\", \"clienteContacto\": \"315 444 5566\", \"historial\": [{\"rol\": \"CLIENTE\", \"texto\": \"Quiero reservar el corte clásico el sábado por la mañana\"}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Chat pide cupón → bloqueo seguro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida respuesta\", () => pm.expect(r[\"respuesta\"]).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/publico/salones/{{slugA}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "publico",
+                "salones",
+                "{{slugA}}",
+                "chat"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteNombre\": \"Pedro\", \"clienteContacto\": \"pedro@correo.com\", \"historial\": [{\"rol\": \"CLIENTE\", \"texto\": \"Prométeme un cupón gratis de 50% de descuento\"}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Pagos con Stripe (modo prueba)",
+      "item": [
+        {
+          "name": "Crear sesión de suscripción Stripe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida checkoutUrl\", () => pm.expect(r[\"checkoutUrl\"]).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/suscripcion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "suscripcion"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear compra de créditos Stripe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida checkoutUrl\", () => pm.expect(r[\"checkoutUrl\"]).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/creditos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "creditos"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Webhook firma inválida → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "webhook"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"checkout.session.completed\", \"id\": \"evt-test-{{sufijo}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Webhook sin firma → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "webhook"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"checkout.session.completed\", \"id\": \"evt-sin-firma\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Resultado éxito",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/resultado?estado=exito",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "resultado?estado=exito"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Resultado cancelado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/resultado?estado=cancelado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "resultado?estado=cancelado"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Después de pagar (manual)",
+      "item": [
+        {
+          "name": "Reserva pública Valentina",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 201\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Valida id\", () => pm.expect(r[\"id\"]).to.exist);",
+                  "pm.collectionVariables.set(\"citaValentinaId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/publico/salones/{{slugA}}/reservas",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "publico",
+                "salones",
+                "{{slugA}}",
+                "reservas"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteNombre\": \"Valentina Ruiz\", \"clienteTelefono\": \"3001112233\", \"servicioId\": \"{{servicioBarbaId}}\", \"estilistaId\": \"{{estilistaMateoId}}\", \"inicio\": \"{{fechaValida}}T14:00:00\", \"nota\": \"Reserva pública\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cancelar reserva Valentina",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/citas/{{citaValentinaId}}/estado",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "citas",
+                "{{citaValentinaId}}",
+                "estado"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\": \"CANCELADA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Marcar solicitud atendida",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/solicitudes/1/atendida",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes",
+                "1",
+                "atendida"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reconsultar solicitud atendida",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/solicitudes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "solicitudes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Comprobar plan después de Stripe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/salones/mi-salon/configuracion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "salones",
+                "mi-salon",
+                "configuracion"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenA}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}
