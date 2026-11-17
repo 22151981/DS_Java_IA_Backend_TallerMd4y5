@@ -17,24 +17,25 @@ public class SalonController {
     }
 
     @GetMapping({"/mi-salon/configuracion", ""})
-    public ResponseEntity<ConfiguracionSalon> obtenerMiConfiguracion(
+    public ResponseEntity<SalonRespuesta> obtenerMiConfiguracion(
             @org.springframework.security.core.annotation.AuthenticationPrincipal com.devsenior.sillon.seguridad.UsuarioAutenticado principal) {
         if (principal == null || principal.salonId() == null) {
             throw new com.devsenior.sillon.compartido.ExcepcionesNegocio.CredencialesInvalidasException("Usuario no autenticado");
         }
-        ConfiguracionSalon config = salonService.obtenerConfiguracionPorId(principal.salonId());
-        return ResponseEntity.ok(config);
+        SalonRespuesta salon = salonService.obtenerSalonPorId(principal.salonId());
+        return ResponseEntity.ok(salon);
     }
 
     @PutMapping("/mi-salon/configuracion")
-    public ResponseEntity<ConfiguracionSalon> actualizarConfiguracion(
+    public ResponseEntity<SalonRespuesta> actualizarConfiguracion(
             @org.springframework.security.core.annotation.AuthenticationPrincipal com.devsenior.sillon.seguridad.UsuarioAutenticado principal,
             @Valid @RequestBody ConfiguracionSalonRequest request) {
         if (principal == null || principal.salonId() == null) {
             throw new com.devsenior.sillon.compartido.ExcepcionesNegocio.CredencialesInvalidasException("Usuario no autenticado");
         }
-        ConfiguracionSalon config = salonService.actualizarConfiguracion(principal.salonId(), request);
-        return ResponseEntity.ok(config);
+        salonService.actualizarConfiguracion(principal.salonId(), request);
+        SalonRespuesta salon = salonService.obtenerSalonPorId(principal.salonId());
+        return ResponseEntity.ok(salon);
     }
 
 }

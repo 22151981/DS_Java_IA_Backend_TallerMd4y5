@@ -7,14 +7,16 @@ import com.devsenior.sillon.salon.SalonRepository;
 import com.devsenior.sillon.usuario.UsuarioRepository;
 import com.stripe.StripeClient;
 import com.stripe.exception.SignatureVerificationException;
-import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
-import com.stripe.param.checkout.SessionCreateParams;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.RestClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +30,7 @@ public class PagoService {
 
     private static final Logger logger = LoggerFactory.getLogger(PagoService.class);
 
-    private final StripeClient stripeClient;
+    private final RestClient restClient;
     private final SalonRepository salonRepository;
     private final UsuarioRepository usuarioRepository;
     private final EventoStripeRepository eventoStripeRepository;
@@ -37,17 +39,35 @@ public class PagoService {
     private final String precioCreditos;
     private final String secretoWebhook;
     private final String urlPublica;
+    private final String urlApi;
+    private final String claveSecreta;
+    private final ObjectMapper objectMapper;
 
     public PagoService(StripeClient stripeClient,
                        SalonRepository salonRepository,
                        UsuarioRepository usuarioRepository,
                        EventoStripeRepository eventoStripeRepository,
                        Clock clock,
+                       String precioPro,
+                       String precioCreditos,
+                       String secretoWebhook,
+                       String urlPublica) {
+        this(salonRepository, usuarioRepository, eventoStripeRepository, clock,
+                precioPro, precioCreditos, secretoWebhook, urlPublica,
+                "https://api.stripe.com", "sk_test_dummy");
+    }
+
+    public PagoService(SalonRepository salonRepository,
+                       UsuarioRepository usuarioRepository,
+                       EventoStripeRepository eventoStripeRepository,
+                       Clock clock,
                        @Value("${stripe.precio.pro}") String precioPro,
                        @Value("${stripe.precio.creditos}") String precioCreditos,
                        @Value("${stripe.secreto.webhook}") String secretoWebhook,
-                       @Value("${sillon.url.publica}") String urlPublica) {
-        this.stripeClient = stripeClient;
+                       @Value("${sillon.url.publica}") String urlPublica,
+                       @Value("${stripe.url.api}") String urlApi,
+                       @Value("${stripe.clave.secreta}") String claveSecreta) {
+        this.restClient = RestClient.builder().build();
         this.salonRepository = salonRepository;
         this.usuarioRepository = usuarioRepository;
         this.eventoStripeRepository = eventoStripeRepository;
@@ -56,6 +76,9 @@ public class PagoService {
         this.precioCreditos = precioCreditos;
         this.secretoWebhook = secretoWebhook;
         this.urlPublica = urlPublica;
+        this.urlApi = quitarBarraFinal(urlApi);
+        this.claveSecreta = claveSecreta;
+        this.objectMapper = new ObjectMapper();
     }
 
     public SesionPagoRespuesta crearSesionSuscripcion(Long salonId, String emailUsuario) {
@@ -65,55 +88,67 @@ public class PagoService {
             throw new ExcepcionesNegocio.ReglaNegocioException("El salón ya tiene el plan PRO");
         }
 
-        SessionCreateParams params = SessionCreateParams.builder()
-                .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                .setCustomerEmail(emailUsuario)
-                .setSuccessUrl(urlPublica + "/api/pagos/resultado?estado=exito")
-                .setCancelUrl(urlPublica + "/api/pagos/resultado?estado=cancelado")
-                .setClientReferenceId(String.valueOf(salonId))
-                .putMetadata("salonId", String.valueOf(salonId))
-                .putMetadata("tipoCompra", "SUSCRIPCION_PRO")
-                .setSubscriptionData(SessionCreateParams.SubscriptionData.builder()
-                        .putMetadata("salonId", String.valueOf(salonId))
-                        .putMetadata("tipoCompra", "SUSCRIPCION_PRO")
-                        .build())
-                .addLineItem(SessionCreateParams.LineItem.builder()
-                        .setPrice(precioPro)
-                        .setQuantity(1L)
-                        .build())
-                .build();
-        try {
-            Session session = Session.create(params);
-            return new SesionPagoRespuesta(TipoCompra.SUSCRIPCION_PRO, session.getId(), session.getUrl());
-        } catch (StripeException ex) {
-            logger.error("Error Stripe: {}", ex.getMessage(), ex);
-            throw new ExcepcionesNegocio.PasarelaException("Error al crear la sesión de suscripción");
-        }
+        return crearSesion(salonId, emailUsuario, TipoCompra.SUSCRIPCION_PRO, precioPro, true);
     }
 
     public SesionPagoRespuesta crearSesionCreditos(Long salonId, String emailUsuario) {
         salonRepository.findById(salonId)
                 .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
 
-        SessionCreateParams params = SessionCreateParams.builder()
-                .setMode(SessionCreateParams.Mode.PAYMENT)
-                .setClientReferenceId(String.valueOf(salonId))
-                .putMetadata("salonId", String.valueOf(salonId))
-                .putMetadata("tipoCompra", "PAQUETE_CREDITOS")
-                .setSuccessUrl(urlPublica + "/api/pagos/resultado?estado=exito")
-                .setCancelUrl(urlPublica + "/api/pagos/resultado?estado=cancelado")
-                .setCustomerEmail(emailUsuario)
-                .addLineItem(SessionCreateParams.LineItem.builder()
-                        .setPrice(precioCreditos)
-                        .setQuantity(1L)
-                        .build())
-                .build();
+        return crearSesion(salonId, emailUsuario, TipoCompra.PAQUETE_CREDITOS, precioCreditos, false);
+    }
+
+    private SesionPagoRespuesta crearSesion(Long salonId, String emailUsuario, TipoCompra tipo,
+                                            String precio, boolean suscripcion) {
+        Map<String, String> formulario = new java.util.LinkedHashMap<>();
+        formulario.put("mode", suscripcion ? "subscription" : "payment");
+        formulario.put("customer_email", emailUsuario);
+        formulario.put("success_url", urlPublica + "/api/pagos/resultado?estado=exito");
+        formulario.put("cancel_url", urlPublica + "/api/pagos/resultado?estado=cancelado");
+        formulario.put("client_reference_id", String.valueOf(salonId));
+        formulario.put("line_items[0][price]", precio);
+        formulario.put("line_items[0][quantity]", "1");
+        formulario.put("metadata[salonId]", String.valueOf(salonId));
+        formulario.put("metadata[tipoCompra]", tipo.name());
+        if (suscripcion) {
+            formulario.put("subscription_data[metadata][salonId]", String.valueOf(salonId));
+            formulario.put("subscription_data[metadata][tipoCompra]", tipo.name());
+        }
+
+        String cuerpo = formulario.entrySet().stream()
+                .map(e -> codificar(e.getKey()) + "=" + codificar(e.getValue()))
+                .reduce((a, b) -> a + "&" + b)
+                .orElse("");
+
         try {
-            Session session = Session.create(params);
-            return new SesionPagoRespuesta(TipoCompra.PAQUETE_CREDITOS, session.getId(), session.getUrl());
-        } catch (StripeException ex) {
-            logger.error("Error Stripe: {}", ex.getMessage(), ex);
-            throw new ExcepcionesNegocio.PasarelaException("Error al crear la sesión de créditos");
+            String respuesta = restClient.post()
+                    .uri(urlApi + "/v1/checkout/sessions")
+                    .header("Authorization", "Bearer " + claveSecreta)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(cuerpo)
+                    .retrieve()
+                    .body(String.class);
+            JsonNode json = objectMapper.readTree(respuesta);
+            return new SesionPagoRespuesta(tipo, json.path("id").asText(), json.path("url").asText());
+        } catch (RuntimeException ex) {
+            logger.error("Error Stripe al crear la sesión: {}", ex.getMessage(), ex);
+            throw new ExcepcionesNegocio.PasarelaException("Error al crear la sesión de pago");
+        } catch (Exception ex) {
+            logger.error("Error al interpretar la respuesta de Stripe: {}", ex.getMessage(), ex);
+            throw new ExcepcionesNegocio.PasarelaException("Error al crear la sesión de pago");
+        }
+    }
+
+    private String quitarBarraFinal(String valor) {
+        if (valor == null) return "";
+        return valor.endsWith("/") ? valor.substring(0, valor.length() - 1) : valor;
+    }
+
+    private String codificar(String valor) {
+        try {
+            return java.net.URLEncoder.encode(valor, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Error al codificar parámetros de Stripe", ex);
         }
     }
 
