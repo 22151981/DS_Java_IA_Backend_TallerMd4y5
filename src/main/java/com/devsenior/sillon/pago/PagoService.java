@@ -43,20 +43,6 @@ public class PagoService {
     private final String claveSecreta;
     private final ObjectMapper objectMapper;
 
-    public PagoService(StripeClient stripeClient,
-                       SalonRepository salonRepository,
-                       UsuarioRepository usuarioRepository,
-                       EventoStripeRepository eventoStripeRepository,
-                       Clock clock,
-                       String precioPro,
-                       String precioCreditos,
-                       String secretoWebhook,
-                       String urlPublica) {
-        this(salonRepository, usuarioRepository, eventoStripeRepository, clock,
-                precioPro, precioCreditos, secretoWebhook, urlPublica,
-                "https://api.stripe.com", "sk_test_dummy");
-    }
-
     public PagoService(SalonRepository salonRepository,
                        UsuarioRepository usuarioRepository,
                        EventoStripeRepository eventoStripeRepository,

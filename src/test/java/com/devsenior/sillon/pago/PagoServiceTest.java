@@ -17,7 +17,7 @@ import static org.mockito.Mockito.*;
 @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 class PagoServiceTest {
     @Mock StripeClient stripe; @Mock SalonRepository salones; @Mock UsuarioRepository usuarios; @Mock EventoStripeRepository eventos;
-    private PagoService service(){return new PagoService(stripe,salones,usuarios,eventos,Clock.fixed(Instant.parse("2026-11-17T15:00:00Z"),ZoneId.of("America/Bogota")),"price_pro","price_creditos","secreto","https://sillon.test");}
+    private PagoService service(){return new PagoService(salones,usuarios,eventos,Clock.fixed(Instant.parse("2026-11-17T15:00:00Z"),ZoneId.of("America/Bogota")),"price_pro","price_creditos","secreto","https://sillon.test","https://api.stripe.com","sk_test_dummy");}
 
     @Test void firmaNulaLanza400(){assertThrows(ExcepcionesNegocio.FirmaInvalidaException.class,()->service().procesarWebhook("{}",null));}
     @Test void firmaEnBlancoLanza400(){assertThrows(ExcepcionesNegocio.FirmaInvalidaException.class,()->service().procesarWebhook("{}","  "));}
