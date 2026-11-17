@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class ChatServiceTest {
+class ChatbotTest {
     @Mock SalonRepository salones; @Mock ServicioRepository servicios; @Mock SolicitudContactoRepository solicitudes;
     @Mock CreditoIaService creditos; @Mock AsistenteIaService ia;
 
