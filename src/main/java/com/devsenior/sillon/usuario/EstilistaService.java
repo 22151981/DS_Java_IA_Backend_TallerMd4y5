@@ -3,6 +3,7 @@ package com.devsenior.sillon.usuario;
 import com.devsenior.sillon.catalogo.Servicio;
 import com.devsenior.sillon.catalogo.ServicioRepository;
 import com.devsenior.sillon.compartido.ExcepcionesNegocio;
+import com.devsenior.sillon.salon.Plan;
 import com.devsenior.sillon.salon.Salon;
 import com.devsenior.sillon.salon.SalonRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -11,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 @Service
 public class EstilistaService {
@@ -33,20 +33,33 @@ public class EstilistaService {
 
     @Transactional
     public EstilistaRespuesta crearEstilista(Long salonId, CrearEstilistaRequest request) {
-        if (usuarioRepository.existsByEmail(request.email())) {
-            throw new ExcepcionesNegocio.ReglaNegocioException("El correo ya está registrado");
-        }
-
         Salon salon = salonRepository.findById(salonId)
                 .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
 
+        if (salon.getPlan() == Plan.GRATIS
+                && usuarioRepository.countBySalonIdAndRol(salonId, Rol.ESTILISTA) >= 2) {
+            throw new ExcepcionesNegocio.PagoRequeridoException(
+                    "El plan GRATIS permite un máximo de 2 estilistas");
+        }
+
+        String emailNormalizado = request.email().trim().toLowerCase();
+        if (usuarioRepository.existsByEmail(emailNormalizado)) {
+            throw new ExcepcionesNegocio.RecursoDuplicadoException("El correo ya está registrado");
+        }
+
+        List<Servicio> servicios = servicioRepository.findAllByIdInAndSalonId(request.servicioIds(), salonId);
+        if (servicios.size() < request.servicioIds().size()) {
+            throw new ExcepcionesNegocio.RecursoNoEncontradoException("Uno o más servicios no pertenecen al salón");
+        }
+
         Usuario estilista = new Usuario();
         estilista.setNombre(request.nombre());
-        estilista.setEmail(request.email());
+        estilista.setEmail(emailNormalizado);
         estilista.setPassword(passwordEncoder.encode(request.password()));
         estilista.setRol(Rol.ESTILISTA);
         estilista.setActivo(true);
         estilista.setSalon(salon);
+        estilista.setServicios(new HashSet<>(servicios));
 
         estilista = usuarioRepository.save(estilista);
         return EstilistaRespuesta.desdeEntidad(estilista);

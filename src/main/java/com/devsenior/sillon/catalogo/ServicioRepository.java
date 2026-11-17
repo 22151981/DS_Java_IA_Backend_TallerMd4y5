@@ -14,4 +14,6 @@ public interface ServicioRepository extends JpaRepository<Servicio, Long> {
     List<Servicio> findBySalonIdAndActivoTrue(Long salonId);
 
     Optional<Servicio> findByIdAndSalonId(Long id, Long salonId);
+
+    List<Servicio> findAllByIdInAndSalonId(Iterable<Long> ids, Long salonId);
 }

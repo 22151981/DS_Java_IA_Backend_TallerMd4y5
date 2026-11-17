@@ -1,32 +1,27 @@
-
 package com.devsenior.sillon.usuario;
 
-import com.devsenior.sillon.catalogo.ServicioRespuesta;
-
+import com.devsenior.sillon.catalogo.Servicio;
 import java.util.List;
 
 public record EstilistaRespuesta(
         Long id,
         String nombre,
         String email,
-        Rol rol,
         Boolean activo,
-        List<ServicioRespuesta> servicios
+        List<String> servicios
 ) {
     public static EstilistaRespuesta desdeEntidad(Usuario usuario) {
-        List<ServicioRespuesta> servicios = usuario.getServicios() == null
+        List<String> nombresServicios = usuario.getServicios() == null
                 ? List.of()
                 : usuario.getServicios().stream()
-                .map(ServicioRespuesta::desdeEntidad)
+                .map(Servicio::getNombre)
                 .toList();
-
         return new EstilistaRespuesta(
                 usuario.getId(),
                 usuario.getNombre(),
                 usuario.getEmail(),
-                usuario.getRol(),
                 usuario.getActivo(),
-                servicios
+                nombresServicios
         );
     }
 }

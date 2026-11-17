@@ -1,6 +1,7 @@
 package com.devsenior.sillon.salon;
 
 import com.devsenior.sillon.compartido.ExcepcionesNegocio;
+import com.devsenior.sillon.seguridad.AuthRespuesta;
 import com.devsenior.sillon.seguridad.JwtUtil;
 import com.devsenior.sillon.usuario.Rol;
 import com.devsenior.sillon.usuario.Usuario;
@@ -38,15 +39,16 @@ public class SalonService {
     }
 
     @Transactional
-    public RegistroSalonRespuesta registrarSalon(RegistroSalonRequest request) {
-        if (usuarioRepository.existsByEmail(request.email())) {
-            throw new ExcepcionesNegocio.RecursoDuplicadoException("El correo ya está registrado en el sistema");
+    public AuthRespuesta registrarSalon(RegistroSalonRequest request) {
+        String emailNormalizado = request.email().trim().toLowerCase();
+        if (usuarioRepository.existsByEmail(emailNormalizado)) {
+            throw new ExcepcionesNegocio.RecursoDuplicadoException("El correo ya está registrado");
         }
 
-        String slug = generarSlugUnico(request.nombreSalon());
+        String slug = generarSlugUnico(request.salonNombre());
 
         Salon salon = new Salon();
-        salon.setNombre(request.nombreSalon());
+        salon.setNombre(request.salonNombre());
         salon.setSlug(slug);
         salon.setCiudad(request.ciudad());
         salon.setDireccion(request.direccion());
@@ -59,24 +61,26 @@ public class SalonService {
         salon = salonRepository.save(salon);
 
         Usuario dueno = new Usuario();
-        dueno.setNombre(request.nombreDueno());
-        dueno.setEmail(request.email());
+        dueno.setNombre(request.nombre());
+        dueno.setEmail(emailNormalizado);
         dueno.setPassword(passwordEncoder.encode(request.password()));
         dueno.setRol(Rol.DUENO);
         dueno.setActivo(true);
         dueno.setSalon(salon);
 
-        usuarioRepository.save(dueno);
+        dueno = usuarioRepository.save(dueno);
 
         String token = jwtUtil.generarToken(dueno.getEmail(), salon.getId(), dueno.getRol().name());
 
-        return new RegistroSalonRespuesta(
-                salon.getId(),
-                salon.getNombre(),
-                salon.getSlug(),
-                dueno.getEmail(),
+        return new AuthRespuesta(
+                token,
+                "Bearer",
+                60L, // o los minutos configurados en tu JwtUtil
+                dueno.getId(),
+                dueno.getNombre(),
                 dueno.getRol(),
-                token
+                salon.getId(),
+                salon.getSlug()
         );
     }
 

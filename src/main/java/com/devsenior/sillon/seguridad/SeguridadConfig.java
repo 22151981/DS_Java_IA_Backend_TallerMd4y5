@@ -63,16 +63,16 @@ public class SeguridadConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/error",
-                    "/v3/api-docs/**",
-                    "/swagger-ui/**",
-                    "/swagger-ui.html",
-                    "/api/salones/registro",
-                    "/api/salones/publico/**",
-                    "/api/auth/login",
-                    "/api/stripe/webhook"
-                ).permitAll()
+                    .requestMatchers(
+                            "/error",
+                            "/v3/api-docs/**",
+                            "/swagger-ui/**",
+                            "/swagger-ui.html",
+                            "/api/auth/**",
+                            "/api/publico/**",
+                            "/api/pagos/webhook",
+                            "/api/pagos/resultado"
+                    ).permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFiltroAutenticacion, UsernamePasswordAuthenticationFilter.class);

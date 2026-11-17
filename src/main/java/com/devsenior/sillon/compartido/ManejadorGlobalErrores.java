@@ -104,4 +104,14 @@ public class ManejadorGlobalErrores {
         );
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
+    @ExceptionHandler(ExcepcionesNegocio.PagoRequeridoException.class)
+    public ResponseEntity<ErrorRespuesta> manejarPagoRequerido(ExcepcionesNegocio.PagoRequeridoException ex) {
+        ErrorRespuesta error = new ErrorRespuesta(
+                HttpStatus.PAYMENT_REQUIRED.value(),
+                "Payment Required",
+                ex.getMessage(),
+                LocalDateTime.now(clock)
+        );
+        return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(error);
+    }
 }

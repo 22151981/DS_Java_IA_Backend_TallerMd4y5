@@ -1,6 +1,7 @@
 package com.devsenior.sillon.catalogo;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -17,7 +18,8 @@ public record ActualizarServicioRequest(
         String descripcion,
 
         @NotNull(message = "La duración en minutos es obligatoria")
-        @Min(value = 5, message = "La duración mínima es de 5 minutos")
+        @Min(value = 15, message = "La duración mínima es 15 minutos")
+        @Max(value = 480, message = "La duración máxima es 480 minutos")
         Integer duracionMinutos,
 
         @NotNull(message = "El precio es obligatorio")

@@ -29,7 +29,7 @@ public class ServicioService {
         servicio.setDescripcion(request.descripcion());
         servicio.setDuracionMinutos(request.duracionMinutos());
         servicio.setPrecio(request.precio());
-        servicio.setActivo(true);
+        servicio.setActivo(request.activo() == null || request.activo());
         servicio.setSalon(salon);
 
         servicio = servicioRepository.save(servicio);

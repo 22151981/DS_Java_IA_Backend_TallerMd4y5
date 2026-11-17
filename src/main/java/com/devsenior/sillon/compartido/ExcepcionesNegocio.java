@@ -48,4 +48,10 @@ public class ExcepcionesNegocio {
             super(mensaje);
         }
     }
+
+    public static class PagoRequeridoException extends RuntimeException {
+        public PagoRequeridoException(String mensaje) {
+            super(mensaje);
+        }
+    }
 }

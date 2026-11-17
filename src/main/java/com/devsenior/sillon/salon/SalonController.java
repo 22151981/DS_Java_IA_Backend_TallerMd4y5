@@ -21,12 +21,6 @@ public class SalonController {
         this.estilistaService = estilistaService;
     }
 
-    @PostMapping("/registro")
-    public ResponseEntity<RegistroSalonRespuesta> registrarSalon(@Valid @RequestBody RegistroSalonRequest request) {
-        RegistroSalonRespuesta respuesta = salonService.registrarSalon(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
-    }
-
     @GetMapping("/publico/{slug}")
     public ResponseEntity<SalonRespuesta> obtenerSalonPublico(@PathVariable String slug) {
         SalonRespuesta respuesta = salonService.obtenerPorSlug(slug);
