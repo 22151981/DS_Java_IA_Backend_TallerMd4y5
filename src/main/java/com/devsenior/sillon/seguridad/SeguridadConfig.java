@@ -17,6 +17,13 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import com.devsenior.sillon.compartido.ErrorRespuesta;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
 
 @Configuration
 @EnableWebSecurity
@@ -25,11 +32,17 @@ public class SeguridadConfig {
 
     private final JwtFiltroAutenticacion jwtFiltroAutenticacion;
     private final UsuarioRepository usuarioRepository;
+    private final Clock clock;
+    private final ObjectMapper objectMapper;
 
     public SeguridadConfig(JwtFiltroAutenticacion jwtFiltroAutenticacion,
-                           UsuarioRepository usuarioRepository) {
+                           UsuarioRepository usuarioRepository,
+                           Clock clock,
+                           ObjectMapper objectMapper) {
         this.jwtFiltroAutenticacion = jwtFiltroAutenticacion;
         this.usuarioRepository = usuarioRepository;
+        this.clock = clock;
+        this.objectMapper = objectMapper;
     }
 
     @Bean
@@ -75,6 +88,20 @@ public class SeguridadConfig {
                     ).permitAll()
                     .requestMatchers("/api/citas/**").authenticated()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(exceptions -> exceptions
+                    .authenticationEntryPoint((request, response, authException) -> {
+                        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                        objectMapper.writeValue(response.getOutputStream(), new ErrorRespuesta(
+                                401, "Unauthorized", "No autenticado", LocalDateTime.now(clock)));
+                    })
+                    .accessDeniedHandler((request, response, accessDeniedException) -> {
+                        response.setStatus(HttpStatus.FORBIDDEN.value());
+                        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                        objectMapper.writeValue(response.getOutputStream(), new ErrorRespuesta(
+                                403, "Forbidden", "Acceso denegado", LocalDateTime.now(clock)));
+                    })
             )
             .addFilterBefore(jwtFiltroAutenticacion, UsernamePasswordAuthenticationFilter.class);
 

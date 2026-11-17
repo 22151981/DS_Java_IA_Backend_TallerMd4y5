@@ -84,6 +84,7 @@ public class SalonService {
         );
     }
 
+    @Transactional(readOnly = true)
     public SalonRespuesta obtenerPorSlug(String slug) {
         Salon salon = salonRepository.findBySlug(slug)
                 .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
@@ -101,10 +102,16 @@ public class SalonService {
         return candidato;
     }
 
+    @Transactional(readOnly = true)
     public ConfiguracionSalon obtenerConfiguracionPorId(Long salonId) {
         Salon salon = salonRepository.findById(salonId)
                 .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
-        return salon.getConfiguracion();
+        ConfiguracionSalon config = salon.getConfiguracion();
+        if (config == null) {
+            config = ConfiguracionSalon.porDefecto();
+            salon.setConfiguracion(config);
+        }
+        return config;
     }
 
     @Transactional

@@ -11,6 +11,7 @@ public record SalonRespuesta(
         String telefono,
         Plan plan,
         Integer creditosIa,
+        ConfiguracionSalon configuracion,
         LocalDateTime fechaCreacion
 ) {
     public static SalonRespuesta desdeEntidad(Salon salon) {
@@ -23,6 +24,7 @@ public record SalonRespuesta(
                 salon.getTelefono(),
                 salon.getPlan(),
                 salon.getCreditosIa(),
+                salon.getConfiguracion() == null ? ConfiguracionSalon.porDefecto() : salon.getConfiguracion(),
                 salon.getFechaCreacion()
         );
     }

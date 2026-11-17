@@ -65,12 +65,14 @@ public class EstilistaService {
         return EstilistaRespuesta.desdeEntidad(estilista);
     }
 
+    @Transactional(readOnly = true)
     public List<EstilistaRespuesta> listarPorSalon(Long salonId) {
         return usuarioRepository.findBySalonIdAndRol(salonId, Rol.ESTILISTA).stream()
                 .map(EstilistaRespuesta::desdeEntidad)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<EstilistaRespuesta> listarActivosPorSlug(String slug) {
         Salon salon = salonRepository.findBySlug(slug)
                 .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));

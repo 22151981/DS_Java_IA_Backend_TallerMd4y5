@@ -12,6 +12,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -38,6 +39,7 @@ public class ChatService {
         this.clock = clock;
     }
 
+    @Transactional
     public ChatRespuesta conversar(String slug, ChatRequest request) {
         Salon salon = salonRepository.findBySlug(slug)
                 .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));

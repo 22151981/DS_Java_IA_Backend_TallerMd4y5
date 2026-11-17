@@ -18,6 +18,7 @@ import com.devsenior.sillon.usuario.Rol;
 import com.devsenior.sillon.usuario.Usuario;
 import com.devsenior.sillon.usuario.UsuarioRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -73,6 +74,7 @@ public class PublicoService {
                 salon.getTelefono(), describirHorario(config), servicios, estilistas);
     }
 
+    @Transactional(readOnly = true)
     public DisponibilidadRespuesta consultarDisponibilidad(String slug, Long servicioId,
                                                             Long estilistaId, LocalDate fecha) {
         Salon salon = buscarSalon(slug);
@@ -100,6 +102,7 @@ public class PublicoService {
                 servicio.getDuracionMinutos(), horariosLibres);
     }
 
+    @Transactional
     public CitaRespuesta reservarEnLinea(String slug, CrearCitaRequest request) {
         Salon salon = buscarSalon(slug);
         return citaService.agendarCita(salon.getId(), request,

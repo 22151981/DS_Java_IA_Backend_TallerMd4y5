@@ -96,6 +96,7 @@ public class CitaService {
         return CitaRespuesta.desdeEntidad(citaRepository.save(cita));
     }
 
+    @Transactional(readOnly = true)
     public List<CitaRespuesta> listarCitasPorDia(Long salonId, Long usuarioId, Rol rol, LocalDate fechaOpcional) {
         LocalDate fecha = fechaOpcional == null ? LocalDate.now(clock) : fechaOpcional;
         LocalDateTime inicio = fecha.atStartOfDay();
@@ -125,6 +126,7 @@ public class CitaService {
         return CitaRespuesta.desdeEntidad(citaRepository.saveAndFlush(cita));
     }
 
+    @Transactional(readOnly = true)
     public RecordatorioRespuesta generarRecordatorio(Long salonId, Long citaId) {
         Cita cita = citaRepository.findByIdAndSalonId(citaId, salonId)
                 .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Cita no encontrada en este salón"));
