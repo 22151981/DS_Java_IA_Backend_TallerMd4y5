@@ -260,3 +260,7 @@ git config --global user.email "tu-correo@ejemplo.com"
 ---
 
 <small>© 2026 Ana Alvarado · Educadora Tech & Desarrolladora Full Stack · Todos los derechos reservados · linkedin.com/in/ana-alvarado-instructora-full-stack</small>
+## Despliegue en producción
+
+- **URL de la API en Render:** https://sillon-api-40xe.onrender.com
+- **Documentación Swagger:** https://sillon-api-40xe.onrender.com/swagger-ui.html
