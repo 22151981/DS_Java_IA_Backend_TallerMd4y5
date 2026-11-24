@@ -64,11 +64,13 @@ public class ChatService {
         try {
             prompt = new String(new ClassPathResource("prompts/chatbot.txt").getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         } catch (Exception ex) { throw new RuntimeException("No se pudo cargar el prompt", ex); }
-        prompt = prompt.replace("{salon}", salon.getNombre()).replace("{direccion}", salon.getDireccion() + ", " + salon.getCiudad())
-                .replace("{horario}", horario).replace("{catalogo}", catalogo.toString()).replace("{cliente}", request.clienteNombre())
-                + "\nHistorial:\n" + historial;
+        prompt = prompt.replace("{salon}", salon.getNombre())
+                .replace("{direccion}", salon.getDireccion() + ", " + salon.getCiudad())
+                .replace("{horario}", horario)
+                .replace("{catalogo}", catalogo.toString())
+                .replace("{cliente}", request.clienteNombre());
 
-        RespuestaIa ia = asistenteIaService.generar("Eres un asistente virtual que devuelve JSON estricto.", prompt);
+        RespuestaIa ia = asistenteIaService.generar(prompt, historial.toString());
         int restantes = creditoIaService.consumirCredito(salon.getId());
 
         String respuesta;

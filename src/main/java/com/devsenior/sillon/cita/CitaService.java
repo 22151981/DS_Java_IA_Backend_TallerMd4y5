@@ -133,13 +133,21 @@ public class CitaService {
         try {
             prompt = new String(new ClassPathResource("prompts/recordatorio.txt").getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         } catch (Exception ex) { throw new RuntimeException("No se pudo cargar el prompt", ex); }
-        String datosFormateados = "Servicio: " + datos.nombreServicio() + " (" + datos.duracionMinutos() + " minutos)\n"
-                + "Estilista: " + datos.nombreEstilista() + "\n"
-                + "Fecha: " + datos.fechaFormateada() + "\nHora: " + datos.horaFormateada()
-                + "\nValor: " + datos.valorFormateado() + "\nDirección: " + datos.direccionCompleta();
-        prompt = prompt.replace("{salon}", datos.nombreSalon()).replace("{cliente}", datos.nombreCliente()).replace("{datos}", datosFormateados);
 
-        RespuestaIa ia = asistenteIaService.generar("Generas recordatorios en JSON estricto.", prompt);
+        String datosFormateados = "Salón: " + datos.nombreSalon() + "\n"
+                + "Cliente: " + datos.nombreCliente() + "\n"
+                + "Servicio: " + datos.nombreServicio() + " (" + datos.duracionMinutos() + " minutos)\n"
+                + "Estilista: " + datos.nombreEstilista() + "\n"
+                + "Fecha: " + datos.fechaFormateada() + "\n"
+                + "Hora: " + datos.horaFormateada() + "\n"
+                + "Valor: " + datos.valorFormateado() + "\n"
+                + "Dirección: " + datos.direccionCompleta();
+
+        prompt = prompt.replace("{salon}", datos.nombreSalon())
+                .replace("{cliente}", datos.nombreCliente())
+                .replace("{datos}", datosFormateados);
+
+        RespuestaIa ia = asistenteIaService.generar(prompt, datosFormateados);
         int restantes = creditoIaService.consumirCredito(salonId);
         try {
             JsonNode raiz = new ObjectMapper().readTree(ia.contenidoJson());
@@ -179,7 +187,7 @@ public class CitaService {
     }
 
     protected record DatosRecordatorio(String telefonoCliente, String nombreSalon, String nombreCliente,
-                                        String nombreServicio, Integer duracionMinutos, String nombreEstilista,
-                                        String fechaFormateada, String horaFormateada, String valorFormateado,
-                                        String direccionCompleta) {}
+                                       String nombreServicio, Integer duracionMinutos, String nombreEstilista,
+                                       String fechaFormateada, String horaFormateada, String valorFormateado,
+                                       String direccionCompleta) {}
 }
