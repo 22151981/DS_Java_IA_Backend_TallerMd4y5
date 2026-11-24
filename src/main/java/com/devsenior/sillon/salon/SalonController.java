@@ -26,7 +26,7 @@ public class SalonController {
         return ResponseEntity.ok(salon);
     }
 
-    @PutMapping("/mi-salon/configuracion")
+    @PutMapping({"/mi-salon/configuracion", "/configuracion"})
     public ResponseEntity<SalonRespuesta> actualizarConfiguracion(
             @org.springframework.security.core.annotation.AuthenticationPrincipal com.devsenior.sillon.seguridad.UsuarioAutenticado principal,
             @Valid @RequestBody ConfiguracionSalonRequest request) {

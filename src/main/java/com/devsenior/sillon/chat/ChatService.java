@@ -75,14 +75,12 @@ public class ChatService {
         boolean escalado;
         try {
             JsonNode raiz = new ObjectMapper().readTree(ia.contenidoJson());
-            JsonNode nodoRespuesta = raiz.get("respuesta");
-            JsonNode nodoEscalar = raiz.get("escalar");
-            if (nodoRespuesta == null || !nodoRespuesta.isTextual() || nodoRespuesta.asText().isBlank()
-                    || nodoEscalar == null || !nodoEscalar.isBoolean()) {
+            JsonNode nodoRespuesta = raiz.path("respuesta");
+            if (!nodoRespuesta.isTextual() || nodoRespuesta.asText().isBlank()) {
                 throw new ExcepcionesNegocio.PasarelaIaInvalidaException("La respuesta de IA no tiene los campos requeridos");
             }
             respuesta = nodoRespuesta.asText();
-            escalado = nodoEscalar.asBoolean();
+            escalado = raiz.path("escalar").asBoolean(false);
         } catch (ExcepcionesNegocio.PasarelaIaInvalidaException ex) {
             throw ex;
         } catch (Exception ex) {

@@ -140,7 +140,7 @@ public class SalonService {
         config.setIntervaloMinutos(request.intervaloMinutos());
 
         salon.setConfiguracion(config);
-        salonRepository.save(salon);
+        salonRepository.saveAndFlush(salon);
 
         return config;
     }

@@ -157,52 +157,66 @@ public class PagoService {
             return new WebhookRespuesta(true, false);
         }
 
-        Object objeto = event.getDataObjectDeserializer().getObject().orElse(null);
+        try {
+            JsonNode root = objectMapper.readTree(payload);
+            JsonNode dataObject = root.path("data").path("object");
 
-        if ("checkout.session.completed".equals(event.getType()) && objeto instanceof Session session) {
-            String estadoPago = session.getPaymentStatus();
-            if (estadoPago == null || "paid".equalsIgnoreCase(estadoPago)) {
-                Map<String, String> metadata = session.getMetadata();
-                String salonIdTexto = metadata == null ? null : metadata.get("salonId");
-                if (salonIdTexto == null) {
-                    salonIdTexto = session.getClientReferenceId();
-                }
-
-                String tipoCompraTexto = metadata == null ? null : metadata.get("tipoCompra");
-                if (tipoCompraTexto == null) {
-                    if ("subscription".equals(session.getMode())) {
-                        tipoCompraTexto = "SUSCRIPCION_PRO";
-                    } else if ("payment".equals(session.getMode())) {
-                        tipoCompraTexto = "PAQUETE_CREDITOS";
+            if ("checkout.session.completed".equals(event.getType())) {
+                String estadoPago = dataObject.path("payment_status").asText(null);
+                if (estadoPago == null || estadoPago.isBlank() || "paid".equalsIgnoreCase(estadoPago)) {
+                    JsonNode metadata = dataObject.path("metadata");
+                    String salonIdTexto = metadata.path("salonId").asText(null);
+                    if (salonIdTexto == null || salonIdTexto.isBlank()) {
+                        salonIdTexto = metadata.path("salon_id").asText(null);
                     }
-                }
+                    if (salonIdTexto == null || salonIdTexto.isBlank()) {
+                        salonIdTexto = dataObject.path("client_reference_id").asText(null);
+                    }
 
-                if (salonIdTexto != null && tipoCompraTexto != null) {
-                    try {
-                        Long salonId = Long.valueOf(salonIdTexto);
-                        Salon salon = salonRepository.findById(salonId)
-                                .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
-                        if ("SUSCRIPCION_PRO".equals(tipoCompraTexto)) {
-                            salon.setPlan(Plan.PRO);
-                            salon.setStripeSuscripcionId(session.getSubscription());
-                            salon.setCreditosIa(salon.getCreditosIa() == null ? 300 : salon.getCreditosIa() + 300);
-                        } else if ("PAQUETE_CREDITOS".equals(tipoCompraTexto)) {
-                            salon.setCreditosIa(salon.getCreditosIa() == null ? 200 : salon.getCreditosIa() + 200);
+                    String tipoCompraTexto = metadata.path("tipoCompra").asText(null);
+                    if (tipoCompraTexto == null || tipoCompraTexto.isBlank()) {
+                        tipoCompraTexto = metadata.path("tipo_compra").asText(null);
+                    }
+                    if (tipoCompraTexto == null || tipoCompraTexto.isBlank()) {
+                        String mode = dataObject.path("mode").asText();
+                        if ("subscription".equals(mode)) {
+                            tipoCompraTexto = "SUSCRIPCION_PRO";
+                        } else if ("payment".equals(mode)) {
+                            tipoCompraTexto = "PAQUETE_CREDITOS";
                         }
-                        salonRepository.saveAndFlush(salon);
-                    } catch (NumberFormatException ignored) {
+                    }
+
+                    if (salonIdTexto != null && tipoCompraTexto != null) {
+                        try {
+                            Long salonId = Long.valueOf(salonIdTexto);
+                            Salon salon = salonRepository.findById(salonId)
+                                    .orElseThrow(() -> new ExcepcionesNegocio.RecursoNoEncontradoException("Salón no encontrado"));
+                            if ("SUSCRIPCION_PRO".equals(tipoCompraTexto)) {
+                                salon.setPlan(Plan.PRO);
+                                salon.setStripeSuscripcionId(dataObject.path("subscription").asText(null));
+                                salon.setCreditosIa(salon.getCreditosIa() == null ? 300 : salon.getCreditosIa() + 300);
+                            } else if ("PAQUETE_CREDITOS".equals(tipoCompraTexto)) {
+                                salon.setCreditosIa(salon.getCreditosIa() == null ? 200 : salon.getCreditosIa() + 200);
+                            }
+                            salonRepository.saveAndFlush(salon);
+                        } catch (NumberFormatException ignored) {
+                        }
                     }
                 }
             }
-        }
 
-        if ("customer.subscription.deleted".equals(event.getType()) && objeto instanceof Subscription subscription) {
-            String subscriptionId = subscription.getId();
-            salonRepository.findByStripeSuscripcionId(subscriptionId).ifPresent(salon -> {
-                salon.setPlan(Plan.GRATIS);
-                salon.setStripeSuscripcionId(null);
-                salonRepository.save(salon);
-            });
+            if ("customer.subscription.deleted".equals(event.getType())) {
+                String subId = dataObject.path("id").asText(null);
+                if (subId != null) {
+                    salonRepository.findByStripeSuscripcionId(subId).ifPresent(salon -> {
+                        salon.setPlan(Plan.GRATIS);
+                        salon.setStripeSuscripcionId(null);
+                        salonRepository.saveAndFlush(salon);
+                    });
+                }
+            }
+        } catch (Exception ex) {
+            throw new ExcepcionesNegocio.PasarelaException("Error al interpretar el evento de Stripe");
         }
 
         EventoStripe evento = new EventoStripe();
