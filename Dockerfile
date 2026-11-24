@@ -4,7 +4,7 @@ COPY pom.xml ./pom.xml
 COPY .mvn ./.mvn
 COPY mvnw ./mvnw
 COPY src ./src
-RUN ./mvnw clean package -DskipTests
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw && ./mvnw clean package -DskipTests
 
 FROM eclipse-temurin:17-jre-alpine AS runtime
 WORKDIR /app
